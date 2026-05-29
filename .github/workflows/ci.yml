@@ -22,7 +22,7 @@ jobs:
         run: python -m compileall backend/app scripts/collect_heritages.py
 
       - name: Docker Compose config check - dev
-        run: docker compose --env-file .env.example config >/dev/null
+        run: APP_ENV_FILE=.env.example docker compose --env-file .env.example config >/dev/null
 
       - name: Docker Compose config check - prod
         run: docker compose -f docker-compose.prod.yml --env-file .env.production.example config >/dev/null

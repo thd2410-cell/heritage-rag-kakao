@@ -22,7 +22,7 @@ services:
       context: ./backend
     container_name: heritage-rag-api
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+psycopg://heritage:heritage_dev_password@db:5432/heritage_rag
     ports:
