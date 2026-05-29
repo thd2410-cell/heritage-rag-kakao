@@ -24,8 +24,8 @@ from app.models.heritage import DocumentChunk, Heritage  # noqa: E402
 from app.services.chunking import chunk_text  # noqa: E402
 from app.services.embedding import embed_text  # noqa: E402
 
-LIST_URL = "http://www.khs.go.kr/cha/SearchKindOpenapiList.do"
-DETAIL_URL = "http://www.khs.go.kr/cha/SearchKindOpenapiDt.do"
+LIST_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiList.do"
+DETAIL_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiDt.do"
 CATEGORIES = {"11": "국보", "12": "보물", "13": "사적"}
 REGIONS = {"11": "서울", "37": "경북"}
 
@@ -131,7 +131,7 @@ def main() -> None:
     args = parser.parse_args()
 
     collected = 0
-    with httpx.Client(headers={"User-Agent": "heritage-rag-kakao-mk0"}) as client, SessionLocal() as db:
+    with httpx.Client(headers={"User-Agent": "heritage-rag-kakao-mk0"}, follow_redirects=True) as client, SessionLocal() as db:
         for region in REGIONS:
             for category in CATEGORIES:
                 for item in fetch_list(client, category, region):
