@@ -5,9 +5,10 @@ from app.models.heritage import Heritage
 from app.services.embedding import embed_text
 
 STOPWORDS = {
-    "대해", "대한", "설명", "쉽게", "심화", "자세", "알려줘", "해줘", "뭐야", "무엇", "퀴즈", "추천",
+    "대해", "대한", "설명", "설명해줘", "쉽게", "심화", "자세", "알려줘", "해줘", "뭐야", "무엇", "퀴즈", "추천",
     "국가유산", "문화재", "문화유산", "유적", "유물",
 }
+PARTICLE_SUFFIXES = ("으로", "에서", "에게", "에는", "에는", "부터", "까지", "처럼", "보다", "하고", "이랑", "와", "과", "은", "는", "이", "가", "을", "를", "에", "의", "도")
 
 
 def search_chunks_by_vector(db: Session, query: str, limit: int = 3) -> list[dict]:
@@ -39,8 +40,17 @@ def search_chunks_by_vector(db: Session, query: str, limit: int = 3) -> list[dic
     return [dict(row) for row in rows]
 
 
+def normalize_term(term: str) -> str:
+    for suffix in PARTICLE_SUFFIXES:
+        if term.endswith(suffix) and len(term) > len(suffix) + 1:
+            return term[: -len(suffix)]
+    return term
+
+
 def extract_search_terms(query: str) -> list[str]:
-    terms = [t for t in re.findall(r"[가-힣A-Za-z0-9]{2,}", query or "") if t not in STOPWORDS]
+    raw_terms = re.findall(r"[가-힣A-Za-z0-9]{2,}", query or "")
+    terms = [normalize_term(t) for t in raw_terms]
+    terms = [t for t in terms if len(t) >= 2 and t not in STOPWORDS]
     # Prefer longer, more specific terms first while preserving uniqueness.
     return sorted(set(terms), key=lambda x: (-len(x), x))[:5]
 
