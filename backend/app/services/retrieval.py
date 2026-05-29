@@ -1,5 +1,5 @@
 import re
-from sqlalchemy import or_, text
+from sqlalchemy import case, or_, text
 from sqlalchemy.orm import Session
 from app.models.heritage import Heritage
 from app.services.embedding import embed_text
@@ -62,10 +62,16 @@ def search_heritages_by_text(db: Session, query: str, limit: int = 3) -> list[di
     conditions = []
     for term in terms:
         conditions.extend([Heritage.name.ilike(f"%{term}%"), Heritage.content.ilike(f"%{term}%")])
+    first_term = terms[0]
+    rank = case(
+        (Heritage.name == first_term, 0),
+        (Heritage.name.ilike(f"%{first_term}%"), 1),
+        else_=2,
+    )
     rows = (
         db.query(Heritage)
         .filter(or_(*conditions))
-        .order_by(Heritage.id.desc())
+        .order_by(rank, Heritage.id.asc())
         .limit(limit)
         .all()
     )
