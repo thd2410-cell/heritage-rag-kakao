@@ -30,13 +30,13 @@ def kakao_text_response(text: str) -> dict:
 @router.post("/skill")
 def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
     utterance = payload.utterance.strip()
-    if not is_heritage_domain(utterance):
+    contexts = search_chunks(db, utterance, limit=3)
+    if not is_heritage_domain(utterance) and not contexts:
         answer = OUT_OF_DOMAIN_MESSAGE
         db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=[]))
         db.commit()
         return kakao_text_response(answer)
 
-    contexts = search_chunks(db, utterance, limit=3)
     if not contexts:
         answer = "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다. 다른 유산명이나 지역으로 질문해 주세요."
     else:

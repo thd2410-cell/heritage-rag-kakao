@@ -15,9 +15,9 @@ class AskRequest(BaseModel):
 
 @router.post("/ask")
 def ask(payload: AskRequest, db: Session = Depends(get_db)):
-    if not is_heritage_domain(payload.question):
-        return {"answer": OUT_OF_DOMAIN_MESSAGE, "sources": []}
     contexts = search_chunks(db, payload.question, limit=3)
+    if not is_heritage_domain(payload.question) and not contexts:
+        return {"answer": OUT_OF_DOMAIN_MESSAGE, "sources": []}
     if not contexts:
         return {"answer": "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다.", "sources": []}
     return {"answer": generate_answer(payload.question, contexts), "sources": contexts}
