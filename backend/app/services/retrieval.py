@@ -1,7 +1,13 @@
+import re
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 from app.models.heritage import Heritage
 from app.services.embedding import embed_text
+
+STOPWORDS = {
+    "대해", "대한", "설명", "쉽게", "심화", "자세", "알려줘", "해줘", "뭐야", "무엇", "퀴즈", "추천",
+    "국가유산", "문화재", "문화유산", "유적", "유물",
+}
 
 
 def search_chunks_by_vector(db: Session, query: str, limit: int = 3) -> list[dict]:
@@ -33,13 +39,22 @@ def search_chunks_by_vector(db: Session, query: str, limit: int = 3) -> list[dic
     return [dict(row) for row in rows]
 
 
+def extract_search_terms(query: str) -> list[str]:
+    terms = [t for t in re.findall(r"[가-힣A-Za-z0-9]{2,}", query or "") if t not in STOPWORDS]
+    # Prefer longer, more specific terms first while preserving uniqueness.
+    return sorted(set(terms), key=lambda x: (-len(x), x))[:5]
+
+
 def search_heritages_by_text(db: Session, query: str, limit: int = 3) -> list[dict]:
-    keyword = query.strip()
-    if not keyword:
+    terms = extract_search_terms(query)
+    if not terms:
         return []
+    conditions = []
+    for term in terms:
+        conditions.extend([Heritage.name.ilike(f"%{term}%"), Heritage.content.ilike(f"%{term}%")])
     rows = (
         db.query(Heritage)
-        .filter(or_(Heritage.name.ilike(f"%{keyword}%"), Heritage.content.ilike(f"%{keyword}%")))
+        .filter(or_(*conditions))
         .order_by(Heritage.id.desc())
         .limit(limit)
         .all()
