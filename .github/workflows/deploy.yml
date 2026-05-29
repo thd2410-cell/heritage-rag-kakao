@@ -20,13 +20,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify production env exists
+      - name: Write production env from GitHub Secret
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
-          test -f .env.production || {
-            echo 'Missing .env.production on self-hosted runner workspace.' >&2
-            echo 'Create it from .env.production.example and fill secrets on the Mac mini.' >&2
+          test -n "$PRODUCTION_ENV" || {
+            echo 'Missing GitHub Secret: PRODUCTION_ENV' >&2
             exit 1
           }
+          printf '%s\n' "$PRODUCTION_ENV" > .env.production
+          chmod 600 .env.production
 
       - name: Deploy with Docker Compose
         run: ./scripts/deploy.sh
