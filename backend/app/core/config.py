@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     llm_provider: str = "openai"
     openai_model: str = "gpt-4o-mini"
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "qwen2.5:3b-instruct"
     embedding_model: str = "BAAI/bge-m3"
     khs_api_base: str = "http://www.khs.go.kr"
 

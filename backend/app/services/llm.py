@@ -1,3 +1,4 @@
+import httpx
 from openai import OpenAI
 from app.core.config import get_settings
 
@@ -33,7 +34,36 @@ def build_instruction(mode: str) -> str:
     return "핵심 설명을 간결하게 제공해줘."
 
 
-def generate_answer(question: str, contexts: list[dict]) -> str:
+def build_user_prompt(question: str, contexts: list[dict]) -> str:
+    mode = infer_mode(question)
+    context_text = "\n\n---\n\n".join(
+        f"유산명: {c.get('name')}\n분류: {c.get('category')}\n지역: {c.get('region')}\n시대: {c.get('era')}\n주소: {c.get('address')}\n출처: {c.get('source_url')}\n내용:\n{c.get('chunk_text')}"
+        for c in contexts
+    )
+    return f"질문: {question}\n\n요청 형식: {build_instruction(mode)}\n\n검색 근거:\n{context_text}"
+
+
+def generate_with_ollama(question: str, contexts: list[dict]) -> str:
+    settings = get_settings()
+    response = httpx.post(
+        f"{settings.ollama_base_url.rstrip('/')}/api/chat",
+        json={
+            "model": settings.ollama_model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": build_user_prompt(question, contexts)},
+            ],
+            "stream": False,
+            "options": {"temperature": 0.2},
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data.get("message", {}).get("content") or "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다."
+
+
+def generate_with_openai(question: str, contexts: list[dict]) -> str:
     settings = get_settings()
     if not settings.openai_api_key:
         names = ", ".join(sorted({c.get("name") for c in contexts if c.get("name")})) or "검색 결과"
@@ -43,18 +73,20 @@ def generate_answer(question: str, contexts: list[dict]) -> str:
             "카카오 응답/검색 파이프라인 검증용 임시 답변입니다. 실제 해설 생성은 API 키 설정 후 동작합니다."
         )
 
-    mode = infer_mode(question)
-    context_text = "\n\n---\n\n".join(
-        f"유산명: {c.get('name')}\n분류: {c.get('category')}\n지역: {c.get('region')}\n시대: {c.get('era')}\n주소: {c.get('address')}\n출처: {c.get('source_url')}\n내용:\n{c.get('chunk_text')}"
-        for c in contexts
-    )
     client = OpenAI(api_key=settings.openai_api_key)
     response = client.chat.completions.create(
         model=settings.openai_model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"질문: {question}\n\n요청 형식: {build_instruction(mode)}\n\n검색 근거:\n{context_text}"},
+            {"role": "user", "content": build_user_prompt(question, contexts)},
         ],
         temperature=0.2,
     )
     return response.choices[0].message.content or "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다."
+
+
+def generate_answer(question: str, contexts: list[dict]) -> str:
+    settings = get_settings()
+    if settings.llm_provider.lower() == "ollama":
+        return generate_with_ollama(question, contexts)
+    return generate_with_openai(question, contexts)
