@@ -1,0 +1,4 @@
+# Optional ML dependencies for local embedding/RAG ingestion.
+# Install only when the embedding worker is needed.
+-r requirements.txt
+sentence-transformers==3.3.1

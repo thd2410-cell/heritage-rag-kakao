@@ -1,0 +1,10 @@
+.env
+.env.production
+.env.*.local
+.venv/
+__pycache__/
+*.pyc
+postgres_data/
+data/*.jsonl
+data/backups/
+.DS_Store

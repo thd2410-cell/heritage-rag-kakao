@@ -1,0 +1,23 @@
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
+from app.services.llm import generate_answer
+from app.services.retrieval import search_chunks
+
+router = APIRouter(prefix="/api/rag", tags=["rag"])
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+@router.post("/ask")
+def ask(payload: AskRequest, db: Session = Depends(get_db)):
+    if not is_heritage_domain(payload.question):
+        return {"answer": OUT_OF_DOMAIN_MESSAGE, "sources": []}
+    contexts = search_chunks(db, payload.question, limit=3)
+    if not contexts:
+        return {"answer": "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다.", "sources": []}
+    return {"answer": generate_answer(payload.question, contexts), "sources": contexts}

@@ -1,0 +1,32 @@
+name: Deploy to Mac mini
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: heritage-rag-kakao-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy on self-hosted Mac mini runner
+    runs-on: [self-hosted, macOS, heritage-rag]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify production env exists
+        run: |
+          test -f .env.production || {
+            echo 'Missing .env.production on self-hosted runner workspace.' >&2
+            echo 'Create it from .env.production.example and fill secrets on the Mac mini.' >&2
+            exit 1
+          }
+
+      - name: Deploy with Docker Compose
+        run: ./scripts/deploy.sh

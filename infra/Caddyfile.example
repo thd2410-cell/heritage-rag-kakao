@@ -1,0 +1,5 @@
+# Optional reverse proxy if you later expose with a domain.
+# Replace heritage.example.com with your domain.
+heritage.example.com {
+  reverse_proxy 127.0.0.1:8000
+}

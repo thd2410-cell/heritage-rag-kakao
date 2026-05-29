@@ -1,0 +1,38 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: heritage-rag-postgres
+    environment:
+      POSTGRES_DB: heritage_rag
+      POSTGRES_USER: heritage
+      POSTGRES_PASSWORD: heritage_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heritage -d heritage_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    container_name: heritage-rag-api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://heritage:heritage_dev_password@db:5432/heritage_rag
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app
+      - ./data:/app/data
+
+volumes:
+  postgres_data:
