@@ -27,6 +27,26 @@ def kakao_text_response(text: str) -> dict:
     }
 
 
+def build_fast_answer(contexts: list[dict]) -> str:
+    if not contexts:
+        return "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다. 다른 유산명이나 지역으로 질문해 주세요."
+    c = contexts[0]
+    text = (c.get("chunk_text") or "").strip().replace("\n", " ")
+    if len(text) > 520:
+        text = text[:520].rstrip() + "..."
+    lines = [f"{c.get('name')}" ]
+    meta = " · ".join(x for x in [c.get("category"), c.get("region"), c.get("era")] if x)
+    if meta:
+        lines.append(meta)
+    if c.get("address"):
+        lines.append(f"위치: {c.get('address')}")
+    lines.append("")
+    lines.append(text or "현재 확보된 설명문이 짧아 추가 설명이 필요합니다.")
+    lines.append("")
+    lines.append("※ 국가유산청 Open API 기반 요약입니다.")
+    return "\n".join(lines)
+
+
 @router.post("/skill")
 def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
     utterance = payload.utterance.strip()
@@ -37,13 +57,7 @@ def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
         db.commit()
         return kakao_text_response(answer)
 
-    if not contexts:
-        answer = "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다. 다른 유산명이나 지역으로 질문해 주세요."
-    else:
-        answer = generate_answer(utterance, contexts)
-        sources = sorted({c.get("name") for c in contexts if c.get("name")})
-        if sources and "출처" not in answer:
-            answer += "\n\n근거: " + ", ".join(sources)
+    answer = build_fast_answer(contexts)
 
     db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=contexts))
     db.commit()
