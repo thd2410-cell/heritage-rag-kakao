@@ -4,7 +4,10 @@ from app.services.embedding import embed_text
 
 
 def search_chunks(db: Session, query: str, limit: int = 3) -> list[dict]:
-    qvec = "[" + ",".join(str(x) for x in embed_text(query)) + "]"
+    try:
+        qvec = "[" + ",".join(str(x) for x in embed_text(query)) + "]"
+    except RuntimeError:
+        return []
     rows = db.execute(
         text(
             """
