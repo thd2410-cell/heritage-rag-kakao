@@ -1,0 +1,24 @@
+# ── 비밀/환경 (절대 커밋 금지) ──────────────
+.env
+**/.env
+*.local
+
+# ── Claude 도구 관련 (저장소 제외) ──────────
+.claude/
+CLAUDE.md
+
+# ── Python ─────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Node / 프론트 ──────────────────────────
+node_modules/
+dist/
+
+# ── 기타 ───────────────────────────────────
+*.json.tmp
+.DS_Store
+backend/eval/generated_draft.json

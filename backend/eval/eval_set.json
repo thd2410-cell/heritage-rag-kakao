@@ -1,0 +1,73 @@
+[
+  { "id": "fact-sungnyemun-year", "category": "사실", "question": "숭례문은 언제 완성됐어?",
+    "expect": { "type": "keywords", "must_include": ["1398"] } },
+
+  { "id": "fact-seokguram-builder", "category": "사실", "question": "석굴암은 누가 창건을 시작했어?",
+    "expect": { "type": "keywords", "must_include": ["김대성"] } },
+
+  { "id": "fact-sungnyemun-plaque", "category": "사실", "question": "숭례문 현판 글씨는 누가 썼다고 전해져?",
+    "expect": { "type": "keywords", "must_include": ["양녕대군"] } },
+
+  { "id": "fact-mireuksa-loc", "category": "사실", "question": "미륵사지 석탑은 어느 지역에 있어?",
+    "expect": { "type": "keywords", "must_include": ["익산"] } },
+
+  { "id": "fact-wongaksa-end", "category": "사실", "question": "원각사는 누구 때문에 없어졌어?",
+    "expect": { "type": "keywords", "must_include": ["연산군"] } },
+
+  { "id": "fact-hwaseong-loc", "category": "사실", "question": "수원 화성은 어느 도시에 있어?",
+    "expect": { "type": "keywords", "must_include": ["수원"] } },
+
+  { "id": "term-hongyemun", "category": "용어", "question": "홍예문이 뭐야?",
+    "expect": { "type": "keywords", "must_include": ["아치"] } },
+
+  { "id": "term-ujingak", "category": "용어", "question": "우진각지붕이 뭐야?",
+    "expect": { "type": "keywords", "must_include": ["경사"] } },
+
+  { "id": "correct-snow", "category": "정정", "question": "숭례문은 폭설로 무너진 적 있어?",
+    "expect": { "type": "judge", "gold": "아니다. 폭설이 아니라 2008년 2월 방화 화재로 누각이 붕괴·훼손되었다." } },
+
+  { "id": "correct-namdaemun-japan", "category": "정정", "question": "남대문은 일제가 정체성 없애려고 만든 이름이라는데 맞아?",
+    "expect": { "type": "judge", "gold": "사실이 아니다(낭설). 태조 5년(1396) 태조실록에 이미 '속칭 남대문'으로 기록되어, 조선 건국 초부터 쓰인 속칭이다. 일제가 만든 이름이 아니다." } },
+
+  { "id": "compare-taps", "category": "비교", "question": "불국사 다보탑과 삼층석탑의 가장 큰 차이는?",
+    "expect": { "type": "judge", "gold": "다보탑은 화려하고 독특한 특수형 석탑, 삼층석탑(석가탑)은 간결한 일반형 석탑이라는 점이 가장 큰 차이다." } },
+
+  { "id": "compare-sung-hwaseong", "category": "비교", "question": "숭례문이랑 수원 화성 비교해줘",
+    "expect": { "type": "judge", "gold": "숭례문은 1398년 지은 목조 성문(국보), 수원 화성은 1796년 완성된 성곽(사적)이다. 시대·종목·형태가 다르다." } },
+
+  { "id": "refuse-gyeongbok-height", "category": "거부", "question": "경복궁 근정전의 높이는 몇 미터야?",
+    "expect": { "type": "refuse" } },
+
+  { "id": "refuse-cheomseongdae", "category": "거부", "question": "첨성대의 높이는 얼마야?",
+    "expect": { "type": "refuse" } },
+
+  { "id": "refuse-sungnyemun-fee", "category": "거부", "question": "숭례문 입장료는 얼마야?",
+    "expect": { "type": "refuse" } },
+
+  { "id": "fact-buseoksa-era", "category": "사실", "question": "부석사 무량수전은 어느 시대 건물이야?",
+    "expect": { "type": "keywords", "must_include": ["고려"] } },
+
+  { "id": "trap-seokguram-natural", "category": "정정", "question": "석굴암은 자연적으로 생긴 동굴이지?",
+    "expect": { "type": "judge", "gold": "아니다. 석굴암은 화강암을 이용해 인위적으로 만든 인공 석굴이다." } },
+
+  { "id": "trap-plaque-sejong", "category": "정정", "question": "숭례문 현판은 세종대왕이 썼지?",
+    "expect": { "type": "judge", "gold": "세종대왕이 아니라 양녕대군이 썼다고 전해진다." } },
+
+  { "id": "trap-japan-built", "category": "정정", "question": "숭례문은 일본이 지은 건물이지?",
+    "expect": { "type": "judge", "gold": "아니다. 숭례문은 조선 태조 때(1398) 지어진 조선의 건축물이다." } },
+
+  { "id": "trap-multihop-older", "category": "추론", "question": "숭례문과 미륵사지 석탑 중 어느 것이 더 오래됐어?",
+    "expect": { "type": "judge", "gold": "미륵사지 석탑(백제 시대)이 숭례문(조선, 1398년)보다 훨씬 오래되었다." } },
+
+  { "id": "trap-tap-height", "category": "추론", "question": "불국사 다보탑이 삼층석탑보다 더 높아?",
+    "expect": { "type": "judge", "gold": "아니다. 다보탑(약 10.29m)이 삼층석탑(약 10.75m)보다 오히려 약간 낮다." } },
+
+  { "id": "trap-tap-ornate", "category": "추론", "question": "불국사 다보탑과 삼층석탑 중 더 화려한 건?",
+    "expect": { "type": "judge", "gold": "다보탑이 더 화려하고 장식적인 특수형 석탑이다." } },
+
+  { "id": "refuse-bonjon-weight", "category": "거부", "question": "석굴암 본존불의 무게는 몇 톤이야?",
+    "expect": { "type": "refuse" } },
+
+  { "id": "refuse-visitors", "category": "거부", "question": "숭례문에 작년 한 해 몇 명이 방문했어?",
+    "expect": { "type": "refuse" } }
+]

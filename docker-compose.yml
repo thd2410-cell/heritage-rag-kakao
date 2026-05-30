@@ -1,0 +1,23 @@
+# 국가유산 AI 해설사 — pgvector(PostgreSQL + vector 익스텐션)
+# pgvector 공식 이미지는 vector 익스텐션이 미리 빌드되어 있어 바로 사용 가능.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: heritage-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: heritage
+      POSTGRES_PASSWORD: heritage
+      POSTGRES_DB: heritage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heritage -d heritage"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pgdata:
