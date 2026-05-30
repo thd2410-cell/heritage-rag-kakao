@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: heritage-chatbot
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      containers:
+        - name: frontend
+          image: heritage-frontend:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef: {name: heritage-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: heritage-chatbot
+spec:
+  type: LoadBalancer
+  selector: {app: frontend}
+  ports:
+    - port: 3000
+      targetPort: 3000

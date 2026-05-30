@@ -1,0 +1,12 @@
+.git
+.pytest_cache
+*.egg-info
+**/__pycache__
+**/*.pyc
+
+frontend/node_modules
+frontend/.next
+frontend/out
+
+backend/target
+.env

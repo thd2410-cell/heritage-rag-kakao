@@ -1,0 +1,15 @@
+.pytest_cache/
+*.egg-info/
+__pycache__/
+*.pyc
+.env
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+backend/target/
+ai-server/.pytest_cache/
+
+.idea/
+.vscode/

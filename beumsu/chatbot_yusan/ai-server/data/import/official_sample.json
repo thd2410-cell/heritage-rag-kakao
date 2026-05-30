@@ -1,0 +1,74 @@
+{
+  "entities": [
+    {
+      "id": "official-gyeongbokgung",
+      "official_name_ko": "경복궁",
+      "official_name_en": "Gyeongbokgung Palace",
+      "official_name_zh": "景福宮",
+      "official_name_ja": "景福宮",
+      "hanja_name": "景福宮",
+      "category": "palace",
+      "period": "조선",
+      "location_name": "서울특별시 종로구",
+      "description": "테스트용 공식 데이터 교체 예시로 적재되는 경복궁 샘플입니다.",
+      "source_trust_level": "S1"
+    }
+  ],
+  "aliases": [
+    {
+      "heritage_entity_id": "official-gyeongbokgung",
+      "alias": "경복궁",
+      "language": "ko",
+      "alias_type": "official",
+      "confidence_prior": 1.0
+    },
+    {
+      "heritage_entity_id": "official-gyeongbokgung",
+      "alias": "Gyeongbokgung Palace",
+      "language": "en",
+      "alias_type": "english",
+      "confidence_prior": 1.0
+    },
+    {
+      "heritage_entity_id": "official-gyeongbokgung",
+      "alias": "景福宮",
+      "language": "zh",
+      "alias_type": "hanja",
+      "confidence_prior": 1.0
+    }
+  ],
+  "documents": [
+    {
+      "id": "official-doc-gyeongbokgung-overview",
+      "heritage_entity_id": "official-gyeongbokgung",
+      "title": "경복궁 테스트용 공식 문서",
+      "source_type": "official_db",
+      "source_trust_level": "S1",
+      "language": "ko",
+      "original_uri": "https://example.local/official/gyeongbokgung",
+      "content": "경복궁은 조선 왕조의 법궁으로, 조선 시대 궁궐 문화와 왕실 의례를 이해하는 데 중요한 유산입니다. 이 문장은 테스트용 샘플이며 실제 서비스에서는 국가유산청 또는 국가유산포털 공식 데이터로 교체해야 합니다.",
+      "metadata": {
+        "sample": true,
+        "replace_with": "국가유산청/국가유산포털 공식 데이터"
+      }
+    }
+  ],
+  "images": [
+    {
+      "heritage_entity_id": "official-gyeongbokgung",
+      "document_id": "official-doc-gyeongbokgung-overview",
+      "title": "경복궁 테스트 이미지",
+      "image_url": "https://www.khs.go.kr/cha/img_public_new/img_300/2019013109155300.jpg",
+      "thumbnail_url": "https://www.khs.go.kr/cha/img_public_new/img_300/2019013109155300.jpg",
+      "caption": "KHS 이미지 적재 구조 검증용 샘플 이미지입니다. 운영 전 실제 API 응답과 이용 조건을 확인해야 합니다.",
+      "license_type": "sample",
+      "source_uri": "https://www.khs.go.kr/cha/SearchImageOpenapi.do",
+      "source_type": "official_image",
+      "source_trust_level": "S1",
+      "metadata": {
+        "sample": true
+      }
+    }
+  ],
+  "relations": []
+}

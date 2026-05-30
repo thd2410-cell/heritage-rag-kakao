@@ -1,0 +1,2 @@
+class HeritageChatbotError(Exception):
+    pass
