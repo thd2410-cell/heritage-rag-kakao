@@ -8,3 +8,9 @@ postgres_data/
 data/*.jsonl
 data/backups/
 .DS_Store
+
+# BK 개인 작업 컨텍스트 (커밋 X)
+agent_working.md
+
+# 실험 인덱스 (재생성 가능, 용량 큼)
+data_eng/**/chroma_db/
