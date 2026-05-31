@@ -71,11 +71,37 @@ def first(*values: Any) -> Any:
     return None
 
 
-def fetch_list(client: httpx.Client, category: str, region: str) -> list[dict[str, Any]]:
-    params = {"ccbaKdcd": category, "ccbaCtcd": region, "pageUnit": 100, "pageIndex": 1}
+def fetch_list_page(client: httpx.Client, page_index: int, page_unit: int, category: str | None = None, region: str | None = None) -> tuple[int, list[dict[str, Any]]]:
+    params: dict[str, Any] = {"pageUnit": page_unit, "pageIndex": page_index}
+    if category:
+        params["ccbaKdcd"] = category
+    if region:
+        params["ccbaCtcd"] = region
     response = client.get(LIST_URL, params=params, timeout=20)
     response.raise_for_status()
-    return parse_items(response.text)
+    root = ET.fromstring(response.text)
+    total = int(root.findtext("totalCnt") or 0)
+    return total, parse_items(response.text)
+
+
+def iter_list(client: httpx.Client, page_unit: int, category: str | None = None, region: str | None = None):
+    page_index = 1
+    fetched = 0
+    while True:
+        total, items = fetch_list_page(client, page_index, page_unit, category=category, region=region)
+        if not items:
+            break
+        for item in items:
+            fetched += 1
+            yield item
+        if fetched >= total:
+            break
+        page_index += 1
+
+
+def fetch_list(client: httpx.Client, category: str, region: str) -> list[dict[str, Any]]:
+    _, items = fetch_list_page(client, 1, 100, category=category, region=region)
+    return items
 
 
 def fetch_detail(client: httpx.Client, item: dict[str, Any]) -> dict[str, Any]:
@@ -128,10 +154,38 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--no-embed", action="store_true", help="Store heritages only; skip chunk embedding")
+    parser.add_argument("--all", action="store_true", help="Collect all listed heritages across all categories/regions")
+    parser.add_argument("--page-unit", type=int, default=1000, help="List API page size when using --all")
     args = parser.parse_args()
 
     collected = 0
     with httpx.Client(headers={"User-Agent": "heritage-rag-kakao-mk0"}, follow_redirects=True) as client, SessionLocal() as db:
+        if args.all:
+            for item in iter_list(client, page_unit=args.page_unit):
+                if args.limit and collected >= args.limit:
+                    db.commit()
+                    print(f"collected={collected}")
+                    return
+                detail = fetch_detail(client, item)
+                row = normalize(item, detail)
+                heritage_id = upsert_heritage(db, row)
+                db.query(DocumentChunk).filter(DocumentChunk.heritage_id == heritage_id).delete()
+                for idx, chunk in enumerate(chunk_text(row.get("content") or row["name"])):
+                    embedding = None if args.no_embed else embed_text(chunk)
+                    db.add(DocumentChunk(
+                        heritage_id=heritage_id,
+                        chunk_text=chunk,
+                        embedding=embedding,
+                        metadata_json={"chunk_index": idx, "name": row["name"], "source_url": row.get("source_url")},
+                    ))
+                collected += 1
+                if collected % 50 == 0:
+                    db.commit()
+                print(json.dumps({"collected": collected, "name": row["name"]}, ensure_ascii=False))
+            db.commit()
+            print(f"collected={collected}")
+            return
+
         for region in REGIONS:
             for category in CATEGORIES:
                 for item in fetch_list(client, category, region):
