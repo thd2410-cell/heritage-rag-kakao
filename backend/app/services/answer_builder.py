@@ -135,7 +135,9 @@ def build_default_answer(sentences: list[str], age_group: str | None) -> list[st
 
 
 def wants_more_detail(question: str) -> bool:
-    return any(word in question for word in ["더 자세", "자세히", "심화", "깊게", "구체적"])
+    compact_question = (question or "").replace(" ", "")
+    detail_hints = ["더 자세", "더자세", "자세히", "자세하게", "상세", "심화", "깊게", "구체적"]
+    return any(hint in question or hint.replace(" ", "") in compact_question for hint in detail_hints)
 
 
 def build_deep_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
