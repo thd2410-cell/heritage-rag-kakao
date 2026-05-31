@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.heritage import ChatLog
 from app.schemas.kakao import KakaoSkillRequest
 from app.services.answer_builder import build_personalized_answer, wants_travel_visit
@@ -31,47 +32,60 @@ def kakao_text_response(text: str) -> dict:
     }
 
 
-def build_fast_answer(contexts: list[dict]) -> str:
-    if not contexts:
-        return "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다. 다른 유산명이나 지역으로 질문해 주세요."
-    c = contexts[0]
-    text = (c.get("chunk_text") or "").strip().replace("\n", " ")
-    if len(text) > 520:
-        text = text[:520].rstrip() + "..."
-    lines = [f"{c.get('name')}"]
-    meta = " · ".join(x for x in [c.get("category"), c.get("region"), c.get("era")] if x)
-    if meta:
-        lines.append(meta)
-    if c.get("address"):
-        lines.append(f"위치: {c.get('address')}")
-    lines.append("")
-    lines.append(text or "현재 확보된 설명문이 짧아 추가 설명이 필요합니다.")
-    lines.append("")
-    lines.append("※ 국가유산청 Open API 기반 요약입니다.")
-    return "\n".join(lines)
+def kakao_callback_wait_response() -> dict:
+    return {
+        "version": "2.0",
+        "useCallback": True,
+        "data": {"text": "국가유산 자료를 확인하고 있어요. 잠시만 기다려 주세요."},
+    }
+
+
+def build_kakao_answer(db: Session, utterance: str, user_key: str | None) -> tuple[str, list[dict]]:
+    blocked = check_guardrail(utterance)
+    if blocked:
+        db.add(ChatLog(user_key=user_key, utterance=utterance, answer=blocked, sources=[]))
+        db.commit()
+        return blocked, []
+
+    resolution = resolve_contextual_question(db, utterance, user_key, fast=True)
+    if resolution.needs_clarification:
+        answer = resolution.clarification or "어떤 국가유산에 대한 질문인지 알려주세요."
+        db.add(ChatLog(user_key=user_key, utterance=utterance, answer=answer, sources=[]))
+        db.commit()
+        return answer, []
+
+    contexts = search_chunks_fast(
+        db,
+        resolution.question,
+        limit=3,
+        include_nearby=wants_travel_visit(resolution.question),
+    )
+    if not is_heritage_domain(resolution.question) and not contexts:
+        answer = OUT_OF_DOMAIN_MESSAGE
+        db.add(ChatLog(user_key=user_key, utterance=utterance, answer=answer, sources=[]))
+        db.commit()
+        return answer, []
+
+    answer = remove_unwanted_cjk(build_personalized_answer(resolution.question, contexts))
+    db.add(ChatLog(user_key=user_key, utterance=utterance, answer=answer, sources=contexts))
+    db.commit()
+    return answer, contexts
+
+
+async def send_callback_answer(callback_url: str, utterance: str, user_key: str | None) -> None:
+    with SessionLocal() as db:
+        answer, _ = build_kakao_answer(db, utterance, user_key)
+    async with httpx.AsyncClient(timeout=20) as client:
+        await client.post(callback_url, json=kakao_text_response(answer))
 
 
 @router.post("/skill")
-def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
+def kakao_skill(payload: KakaoSkillRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     utterance = payload.utterance.strip()
-    blocked = check_guardrail(utterance)
-    if blocked:
-        db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=blocked, sources=[]))
-        db.commit()
-        return kakao_text_response(blocked)
 
-    resolution = resolve_contextual_question(db, utterance, payload.user_key, fast=True)
-    if resolution.needs_clarification:
-        return kakao_text_response(resolution.clarification or "어떤 국가유산에 대한 질문인지 알려주세요.")
+    if payload.callback_url:
+        background_tasks.add_task(send_callback_answer, payload.callback_url, utterance, payload.user_key)
+        return kakao_callback_wait_response()
 
-    contexts = search_chunks_fast(db, resolution.question, limit=3, include_nearby=wants_travel_visit(resolution.question))
-    if not is_heritage_domain(resolution.question) and not contexts:
-        answer = OUT_OF_DOMAIN_MESSAGE
-        db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=[]))
-        db.commit()
-        return kakao_text_response(answer)
-
-    answer = remove_unwanted_cjk(build_personalized_answer(resolution.question, contexts))
-    db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=contexts))
-    db.commit()
+    answer, _ = build_kakao_answer(db, utterance, payload.user_key)
     return kakao_text_response(answer)

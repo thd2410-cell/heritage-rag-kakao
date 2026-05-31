@@ -10,6 +10,11 @@ class KakaoSkillRequest(BaseModel):
         return str(self.userRequest.get("utterance") or "")
 
     @property
+    def callback_url(self) -> str | None:
+        value = self.userRequest.get("callbackUrl")
+        return str(value) if value else None
+
+    @property
     def user_key(self) -> str | None:
         user = self.userRequest.get("user") or {}
         return (
