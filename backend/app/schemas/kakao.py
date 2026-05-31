@@ -12,4 +12,10 @@ class KakaoSkillRequest(BaseModel):
     @property
     def user_key(self) -> str | None:
         user = self.userRequest.get("user") or {}
-        return user.get("id")
+        return (
+            user.get("id")
+            or user.get("botUserKey")
+            or user.get("plusfriendUserKey")
+            or self.userRequest.get("botUserKey")
+            or self.userRequest.get("plusfriendUserKey")
+        )

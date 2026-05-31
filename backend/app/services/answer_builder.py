@@ -155,6 +155,12 @@ def wants_easy_explanation(question: str) -> bool:
     return any(hint in question or hint.replace(" ", "") in compact_question for hint in hints)
 
 
+def wants_travel_visit(question: str) -> bool:
+    compact_question = (question or "").replace(" ", "")
+    hints = ["근처", "주변", "위치", "주소", "어디", "답사", "여행", "가는", "관람", "입장", "동선", "코스"]
+    return any(hint in question or hint.replace(" ", "") in compact_question for hint in hints)
+
+
 def build_deep_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
     architecture = facet_evidence(facet_json, "architecture_space")[:3]
     story = facet_evidence(facet_json, "story_legend")[:3]
@@ -249,6 +255,8 @@ def build_personalized_answer(question: str, contexts: list[dict], audience: Aud
         lines.extend(build_importance_answer(name, sentences, age_group, facet_json))
     elif wants_more_detail(question):
         lines.extend(build_deep_answer(name, sentences, age_group, facet_json))
+    elif wants_travel_visit(question):
+        lines.extend(build_travel_answer(name, address, sentences, age_group, facet_json))
     elif primary_interest == "architecture":
         lines.extend(build_architecture_answer(name, sentences, age_group, facet_json))
     elif primary_interest == "people":

@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.answer_builder import wants_easy_explanation, wants_importance, wants_more_detail
+from app.services.answer_builder import wants_easy_explanation, wants_importance, wants_more_detail, wants_travel_visit
 from app.services.conversation import choose_subject, is_contextual_question, needs_subject_clarification
 
 
@@ -58,6 +58,11 @@ class ConversationTests(unittest.TestCase):
         for example in ["쉽게 다시 설명해줘", "초등학생도 이해하게 설명해줘", "쉬운 말로 풀어서 말해줘"]:
             with self.subTest(example=example):
                 self.assertTrue(wants_easy_explanation(example))
+
+    def test_travel_variants_trigger_travel_answer(self):
+        for example in ["근처에 뭐 있어?", "위치 알려줘", "답사 코스 알려줘"]:
+            with self.subTest(example=example):
+                self.assertTrue(wants_travel_visit(example))
 
 
 if __name__ == "__main__":

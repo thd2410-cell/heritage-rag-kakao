@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.heritage import ChatLog
 from app.schemas.kakao import KakaoSkillRequest
-from app.services.answer_builder import build_personalized_answer
+from app.services.answer_builder import build_personalized_answer, wants_travel_visit
 from app.services.conversation import resolve_contextual_question
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
 from app.services.guardrails import check_guardrail
@@ -64,7 +64,7 @@ def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
     if resolution.needs_clarification:
         return kakao_text_response(resolution.clarification or "어떤 국가유산에 대한 질문인지 알려주세요.")
 
-    contexts = search_chunks_fast(db, resolution.question, limit=3)
+    contexts = search_chunks_fast(db, resolution.question, limit=3, include_nearby=wants_travel_visit(resolution.question))
     if not is_heritage_domain(resolution.question) and not contexts:
         answer = OUT_OF_DOMAIN_MESSAGE
         db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=[]))
