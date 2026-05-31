@@ -24,6 +24,8 @@ from xml.etree import ElementTree as ET
 
 LIST_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiList.do"
 DETAIL_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiDt.do"
+GIS_LOCATION_URL = "https://www.gis-heritage.go.kr/openapi/xmlService/spca.do"
+EVENT_URL = "https://www.khs.go.kr/cha/openapi/selectEventListOpenapi.do"
 
 DEFAULT_CATEGORIES = ["11", "12", "13"]  # 국보, 보물, 사적
 DEFAULT_REGIONS = ["11", "37"]  # 서울, 경북
@@ -129,11 +131,16 @@ def build_facets(content: str, address: str | None, latitude: float | None, long
             "address": address,
             "latitude": latitude,
             "longitude": longitude,
+            "spatial_api": {
+                "url": GIS_LOCATION_URL,
+                "status": "available_for_v1",
+                "note": "국가유산 공간정보 API는 지정구역/보호구역 등 공간 레이어 보강용입니다. 1차 JSON에는 목록/상세 좌표를 기본 위치로 넣고, 공간 API 출처를 함께 기록합니다.",
+            },
             "evidence": pick_sentences(sentences, TRAVEL_KEYWORDS),
-            "nearby_places": [],
+            "nearby_heritages": [],
             "events": [],
-            "status": "partial_v1",
-            "note": "근처 여행지와 행사는 v2에서 위치정보/행사 API로 보강합니다.",
+            "status": "enriched_v1",
+            "note": "근처 맛집/교통은 제외합니다. 근처 국가유산과 국가유산 행사만 공공 API 기반으로 보강합니다.",
         },
     }
 
@@ -198,6 +205,8 @@ def normalize_record(list_item: dict[str, Any], detail: dict[str, Any]) -> dict[
         "source": {
             "list_url": LIST_URL,
             "detail_url": source_url,
+            "gis_location_url": GIS_LOCATION_URL,
+            "event_url": EVENT_URL,
             "fetched_at": datetime.now(timezone.utc).isoformat(),
         },
         "raw": {
@@ -205,6 +214,95 @@ def normalize_record(list_item: dict[str, Any], detail: dict[str, Any]) -> dict[
             "detail": detail,
         },
     }
+
+
+def normalize_event(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "event_id": item.get("seqNo"),
+        "title": compact(item.get("subTitle")),
+        "description": compact(item.get("subContent")),
+        "start_date": item.get("sDate"),
+        "end_date": item.get("eDate"),
+        "date_text": compact(item.get("subDate")),
+        "venue": compact(item.get("subDesc")),
+        "region": compact(item.get("sido")),
+        "district": compact(item.get("gugun")),
+        "organizer": compact(item.get("groupName")),
+        "contact": compact(item.get("contact")),
+        "target": compact(item.get("subDesc_2")),
+        "price": compact(item.get("subDesc_3")),
+        "url": compact(item.get("subPath")),
+        "source": "selectEventListOpenapi",
+    }
+
+
+def fetch_events(limit: int = 100) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    xml_text = fetch_xml(EVENT_URL, {"pageUnit": limit, "pageIndex": 1})
+    return [normalize_event(item) for item in parse_items(xml_text)[:limit]]
+
+
+def text_contains_any(text: str, terms: list[str]) -> bool:
+    return any(term and term in text for term in terms)
+
+
+def match_events(record: dict[str, Any], events: list[dict[str, Any]], limit: int = 5) -> list[dict[str, Any]]:
+    name = record["names"].get("ko") or ""
+    short_terms = [part for part in re.split(r"\s+", name) if len(part) >= 2]
+    region = compact(record["location"].get("region"))
+    district = compact(record["location"].get("district"))
+    matched: list[tuple[int, dict[str, Any]]] = []
+    for event in events:
+        haystack = " ".join(str(event.get(key) or "") for key in ["title", "description", "venue", "region", "district"])
+        score = 0
+        if name and name in haystack:
+            score += 10
+        if text_contains_any(haystack, short_terms):
+            score += 5
+        if region and region in compact(event.get("region")):
+            score += 2
+        if district and district in compact(event.get("district")):
+            score += 3
+        if score > 0:
+            matched.append((score, event))
+    return [event for _, event in sorted(matched, key=lambda item: -item[0])[:limit]]
+
+
+def add_nearby_heritages(records: list[dict[str, Any]], radius_km_hint: float = 3.0, limit: int = 5) -> None:
+    # Lightweight v1: use same district first, then same region. Precise distance sorting can be v2.
+    for record in records:
+        region = compact(record["location"].get("region"))
+        district = compact(record["location"].get("district"))
+        nearby = []
+        for other in records:
+            if other["id"] == record["id"]:
+                continue
+            other_region = compact(other["location"].get("region"))
+            other_district = compact(other["location"].get("district"))
+            score = 0
+            if district and district == other_district:
+                score += 10
+            elif region and region == other_region:
+                score += 3
+            if score:
+                nearby.append((score, {
+                    "id": other["id"],
+                    "name": other["names"].get("ko"),
+                    "designation": other["classification"].get("designation"),
+                    "region": other_region,
+                    "district": other_district,
+                    "address": other["location"].get("address"),
+                    "latitude": other["location"].get("latitude"),
+                    "longitude": other["location"].get("longitude"),
+                    "match_basis": "same_district" if score >= 10 else "same_region",
+                }))
+        record["answer_facets"]["travel_visit"]["nearby_heritages"] = [item for _, item in sorted(nearby, key=lambda x: -x[0])[:limit]]
+
+
+def add_events(records: list[dict[str, Any]], events: list[dict[str, Any]]) -> None:
+    for record in records:
+        record["answer_facets"]["travel_visit"]["events"] = match_events(record, events)
 
 
 def fetch_xml(url: str, params: dict[str, Any]) -> str:
@@ -234,6 +332,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--categories", nargs="*", default=DEFAULT_CATEGORIES)
     parser.add_argument("--regions", nargs="*", default=DEFAULT_REGIONS)
+    parser.add_argument("--event-limit", type=int, default=100, help="Number of KHS event records to fetch and match")
     args = parser.parse_args()
 
     records: list[dict[str, Any]] = []
@@ -249,12 +348,23 @@ def main() -> None:
         if len(records) >= args.limit:
             break
 
+    events = fetch_events(args.event_limit)
+    add_nearby_heritages(records)
+    add_events(records, events)
+
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": "heritage-chat.dataset.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(records),
+        "enrichment": {
+            "location_api": GIS_LOCATION_URL,
+            "event_api": EVENT_URL,
+            "event_count_fetched": len(events),
+            "nearby_scope_v1": "same district first, then same region within generated dataset",
+            "excluded_v1": ["traffic", "restaurants", "cafes", "non-heritage tourist spots"],
+        },
         "records": records,
     }
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
