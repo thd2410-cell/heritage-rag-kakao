@@ -7,6 +7,7 @@ from app.services.embedding import embed_text
 
 STOPWORDS = {
     "대해", "대한", "설명", "설명해줘", "쉽게", "심화", "자세", "알려줘", "해줘", "뭐야", "무엇", "퀴즈", "추천",
+    "더자세", "더자세하게", "자세히", "자세하게", "상세", "상세히", "상세하게", "구체", "구체적", "풀어서", "길게",
     "국가유산", "문화재", "문화유산", "유적", "유물",
 }
 PARTICLE_SUFFIXES = ("으로", "에서", "에게", "에는", "에는", "부터", "까지", "처럼", "보다", "하고", "이랑", "와", "과", "은", "는", "이", "가", "을", "를", "에", "의", "도")
@@ -242,3 +243,17 @@ def search_chunks(db: Session, query: str, limit: int = 3) -> list[dict]:
     if text_results:
         return attach_nearby_heritages(db, text_results)
     return attach_nearby_heritages(db, search_heritages_by_fuzzy_name(db, query, limit=limit))
+
+
+def search_chunks_fast(db: Session, query: str, limit: int = 3, include_nearby: bool = False, include_fuzzy: bool = True) -> list[dict]:
+    """Fast retrieval path for latency-sensitive channels such as Kakao.
+
+    It skips query embedding generation and expensive nearby attachment. This
+    keeps Kakao skill responses under its strict timeout while the web RAG can
+    still use the richer search path.
+    """
+    query = apply_common_aliases(query)
+    results = search_heritages_by_text(db, query, limit=limit)
+    if not results and include_fuzzy:
+        results = search_heritages_by_fuzzy_name(db, query, limit=limit)
+    return attach_nearby_heritages(db, results) if include_nearby else results

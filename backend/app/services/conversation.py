@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.heritage import ChatLog
 from app.services.domain import is_heritage_domain
 from app.services.personalization import AudienceProfile
-from app.services.retrieval import apply_common_aliases, search_chunks
+from app.services.retrieval import apply_common_aliases, search_chunks, search_chunks_fast
 
 FOLLOWUP_HINTS = [
     "더 자세", "더자세", "자세히", "자세하게", "상세", "상세히", "상세하게", "심화",
@@ -104,14 +104,14 @@ def with_conversation_meta(contexts: list[dict], audience: AudienceProfile | Non
     return stamped
 
 
-def search_explicit_subject(db: Session, question: str) -> dict | None:
+def search_explicit_subject(db: Session, question: str, fast: bool = False) -> dict | None:
     """Return a likely explicitly-mentioned heritage, if the user named one.
 
     This is intentionally stricter than general retrieval. Short follow-ups like
     "건축적으로 설명해줘" should not jump to an unrelated record just because a
     content word matched.
     """
-    contexts = search_chunks(db, question, limit=1)
+    contexts = search_chunks_fast(db, question, limit=1, include_fuzzy=False) if fast else search_chunks(db, question, limit=1)
     if not contexts:
         return None
     top = contexts[0]
@@ -160,9 +160,9 @@ def choose_subject(question: str, subjects: list[str]) -> tuple[str | None, str]
     return subjects[0], "current_topic"
 
 
-def resolve_contextual_question(db: Session, question: str, session_id: str | None) -> ConversationResolution:
+def resolve_contextual_question(db: Session, question: str, session_id: str | None, fast: bool = False) -> ConversationResolution:
     subjects = recent_subjects(db, session_id)
-    explicit = search_explicit_subject(db, question)
+    explicit = search_explicit_subject(db, question, fast=fast)
     if explicit:
         return ConversationResolution(question=question, subject=explicit.get("name"), mode="explicit_subject")
 
