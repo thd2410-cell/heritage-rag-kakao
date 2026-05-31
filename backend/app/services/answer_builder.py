@@ -190,17 +190,28 @@ def build_importance_answer(name: str, sentences: list[str], age_group: str | No
 
 
 def build_easy_answer(name: str, sentences: list[str], facet_json: dict | None = None) -> list[str]:
-    story = facet_evidence(facet_json, "story_legend")[:1]
-    architecture = facet_evidence(facet_json, "architecture_space")[:1]
-    details = story + architecture
-    if not details:
-        details = sentences[:3]
-    simple_details = [rewrite_for_age(item, "elementary") for item in details]
+    evidence_text = " ".join(
+        facet_evidence(facet_json, "story_legend")
+        + facet_evidence(facet_json, "architecture_space")
+        + sentences[:5]
+    )
+    simple_details: list[str] = []
+    if "정문" in evidence_text or "남대문" in evidence_text:
+        simple_details.append("서울 도성의 큰 문이었고, 남쪽에 있어서 남대문이라고도 불렸어요.")
+    if "목조" in evidence_text or "오래" in evidence_text:
+        simple_details.append("서울에 남아 있는 오래된 나무 건물 중 하나라서 가치가 커요.")
+    if "화재" in evidence_text or "복원" in evidence_text:
+        simple_details.append("큰 화재 피해를 입었지만, 다시 복원되어 지금도 볼 수 있어요.")
+    if not simple_details:
+        simple_details = [rewrite_for_age(item, "elementary") for item in sentences[:2]]
+        simple_details = [item if len(item) <= 80 else item[:80].rstrip() + "..." for item in simple_details]
     return [
         "쉽게 말하면:",
         f"- ‘{name}’은 옛사람들이 남긴 중요한 흔적이에요.",
         *bullet_lines(simple_details[:3]),
-        f"- 그래서 ‘{name}’을 보면 그 시대 사람들이 무엇을 중요하게 생각했는지 알 수 있어요.",
+        "",
+        "한 줄로 정리하면:",
+        f"‘{name}’은 옛 시대의 모습과 기억을 지금도 볼 수 있게 해주는 국가유산이에요.",
     ]
 
 
