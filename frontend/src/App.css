@@ -74,6 +74,64 @@ h1 {
   line-height: 1.5;
 }
 
+.profile-panel {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 250, 242, 0.8);
+  box-shadow: 0 10px 30px rgba(60, 36, 12, 0.06);
+}
+
+.profile-panel label,
+.interest-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.profile-panel select {
+  min-width: 138px;
+  height: 38px;
+  border: 1px solid #dfc9ad;
+  border-radius: 12px;
+  padding: 0 10px;
+  background: white;
+  color: var(--ink);
+}
+
+.interest-group {
+  flex: 1;
+}
+
+.interest-group > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.interest-group button {
+  border: 1px solid #dfc9ad;
+  background: #fff8ee;
+  color: #6f3a18;
+  border-radius: 999px;
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+.interest-group button.selected {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: white;
+}
+
 .chat-panel {
   flex: 1;
   min-height: 520px;

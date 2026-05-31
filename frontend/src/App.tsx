@@ -8,6 +8,11 @@ type ChatMessage = {
   content: string
 }
 
+type AudienceProfile = {
+  age_group?: string
+  interests: string[]
+}
+
 type AskResponse = {
   answer?: string
   sources?: unknown[]
@@ -18,6 +23,14 @@ const SUGGESTIONS = [
   '석굴암 심화 설명해줘',
   '창덕궁 퀴즈 내줘',
   '경주에서 볼만한 국가유산 추천해줘',
+]
+
+const INTEREST_OPTIONS = [
+  { value: 'architecture', label: '건축/공간' },
+  { value: 'story', label: '이야기/전설' },
+  { value: 'people', label: '인물' },
+  { value: 'travel', label: '답사/여행' },
+  { value: 'quiz', label: '퀴즈' },
 ]
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -34,14 +47,27 @@ function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     createMessage(
       'assistant',
-      '안녕하세요. 저는 국가유산 AI 해설사입니다. 궁금한 유산 이름이나 지역을 물어보세요.',
+      '안녕하세요. 저는 국가유산 AI 해설사입니다. 나이대와 관심사를 고르면 설명 방식과 후속 질문을 맞춰드릴게요.',
     ),
   ])
   const [question, setQuestion] = useState('')
+  const [ageGroup, setAgeGroup] = useState('adult')
+  const [interests, setInterests] = useState<string[]>(['story'])
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const canSubmit = useMemo(() => question.trim().length > 0 && !isLoading, [question, isLoading])
+
+  function toggleInterest(value: string) {
+    setInterests((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
+  }
+
+  function buildAudience(): AudienceProfile {
+    return {
+      age_group: ageGroup,
+      interests,
+    }
+  }
 
   async function ask(nextQuestion: string) {
     const trimmed = nextQuestion.trim()
@@ -55,7 +81,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/rag/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({ question: trimmed, audience: buildAudience() }),
       })
 
       if (!response.ok) {
@@ -96,8 +122,36 @@ function App() {
       <header className="hero-section">
         <p className="eyebrow">HERITAGE RAG CHAT</p>
         <h1>국가유산 AI 해설사</h1>
-        <p className="subtitle">궁궐, 유적, 국보, 보물에 대해 물어보세요. 국가유산청 데이터 기반으로 답합니다.</p>
+        <p className="subtitle">궁궐, 유적, 국보, 보물에 대해 물어보세요. 나이대와 관심사에 맞춰 설명합니다.</p>
       </header>
+
+      <section className="profile-panel" aria-label="맞춤 설명 설정">
+        <label>
+          나이대
+          <select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)} disabled={isLoading}>
+            <option value="elementary">초등학생</option>
+            <option value="middle_high">중고등학생</option>
+            <option value="adult">성인</option>
+            <option value="senior">시니어</option>
+          </select>
+        </label>
+        <div className="interest-group" aria-label="관심사">
+          <span>관심사</span>
+          <div>
+            {INTEREST_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={interests.includes(option.value) ? 'selected' : ''}
+                onClick={() => toggleInterest(option.value)}
+                disabled={isLoading}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="chat-panel" aria-label="국가유산 AI 채팅">
         <div className="messages" aria-live="polite">

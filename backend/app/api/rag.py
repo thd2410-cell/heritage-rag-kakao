@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
 from app.services.llm import generate_answer
+from app.services.personalization import AudienceProfile
 from app.services.retrieval import search_chunks
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/api/rag", tags=["rag"])
 
 class AskRequest(BaseModel):
     question: str
+    audience: AudienceProfile | None = Field(default=None)
 
 
 @router.post("/ask")
@@ -20,4 +22,4 @@ def ask(payload: AskRequest, db: Session = Depends(get_db)):
         return {"answer": OUT_OF_DOMAIN_MESSAGE, "sources": []}
     if not contexts:
         return {"answer": "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다.", "sources": []}
-    return {"answer": generate_answer(payload.question, contexts), "sources": contexts}
+    return {"answer": generate_answer(payload.question, contexts, payload.audience), "sources": contexts}

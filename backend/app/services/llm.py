@@ -1,6 +1,7 @@
 import httpx
 from openai import OpenAI
 from app.core.config import get_settings
+from app.services.personalization import AudienceProfile, build_audience_instruction
 from app.services.text_cleaning import has_unwanted_cjk
 
 SYSTEM_PROMPT = """너는 국가유산 전문 AI 해설사다.
@@ -14,6 +15,11 @@ SYSTEM_PROMPT = """너는 국가유산 전문 AI 해설사다.
 - 중국어 한자어, 중국어 병음, 일본어 가나, 영어 번역 병기를 절대 섞지 않는다.
 - 한자는 원문 고유명사나 국가유산 명칭에 이미 포함된 경우에만 최소한으로 허용한다.
 - 쉬운 설명에서도 외국어 병기 없이 한국어 낱말로 풀어쓴다.
+
+[근거 엄수]
+- 검색 근거에 없는 현재 위치, 전시 여부, 체험 프로그램, 퀴즈 제공 여부, 전설, 평가를 만들지 않는다.
+- 검색 근거 안에서 서로 다른 장소 이동 정보가 있으면 가장 최근 상태를 우선한다. 예: '현재는 ... 보관'이라고 되어 있으면 과거 위치를 현재 위치처럼 말하지 않는다.
+- 개인화는 말투, 난이도, 강조점, 후속 질문에만 반영한다. 사실 자체를 바꾸거나 추가하지 않는다.
 """
 
 LANGUAGE_REPAIR_PROMPT = """앞선 답변에 한국어가 아닌 문자가 섞였다.
@@ -48,13 +54,14 @@ def build_instruction(mode: str) -> str:
     return "핵심 설명을 간결하게 제공해줘. 반드시 한국어만 사용해줘."
 
 
-def build_user_prompt(question: str, contexts: list[dict]) -> str:
+def build_user_prompt(question: str, contexts: list[dict], audience: AudienceProfile | None = None) -> str:
     mode = infer_mode(question)
     context_text = "\n\n---\n\n".join(
         f"유산명: {c.get('name')}\n분류: {c.get('category')}\n지역: {c.get('region')}\n시대: {c.get('era')}\n주소: {c.get('address')}\n출처: {c.get('source_url')}\n내용:\n{c.get('chunk_text')}"
         for c in contexts
     )
-    return f"질문: {question}\n\n요청 형식: {build_instruction(mode)}\n\n검색 근거:\n{context_text}"
+    audience_instruction = build_audience_instruction(audience)
+    return f"질문: {question}\n\n요청 형식: {build_instruction(mode)}\n\n{audience_instruction}\n\n검색 근거:\n{context_text}"
 
 
 def call_ollama(messages: list[dict]) -> str:
@@ -74,8 +81,8 @@ def call_ollama(messages: list[dict]) -> str:
     return data.get("message", {}).get("content") or "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다."
 
 
-def generate_with_ollama(question: str, contexts: list[dict]) -> str:
-    user_prompt = build_user_prompt(question, contexts)
+def generate_with_ollama(question: str, contexts: list[dict], audience: AudienceProfile | None = None) -> str:
+    user_prompt = build_user_prompt(question, contexts, audience)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
@@ -97,7 +104,7 @@ def generate_with_ollama(question: str, contexts: list[dict]) -> str:
     return repaired
 
 
-def generate_with_openai(question: str, contexts: list[dict]) -> str:
+def generate_with_openai(question: str, contexts: list[dict], audience: AudienceProfile | None = None) -> str:
     settings = get_settings()
     if not settings.openai_api_key:
         names = ", ".join(sorted({c.get("name") for c in contexts if c.get("name")})) or "검색 결과"
@@ -112,7 +119,7 @@ def generate_with_openai(question: str, contexts: list[dict]) -> str:
         model=settings.openai_model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_prompt(question, contexts)},
+            {"role": "user", "content": build_user_prompt(question, contexts, audience)},
         ],
         temperature=0.1,
     )
@@ -122,8 +129,8 @@ def generate_with_openai(question: str, contexts: list[dict]) -> str:
     return answer
 
 
-def generate_answer(question: str, contexts: list[dict]) -> str:
+def generate_answer(question: str, contexts: list[dict], audience: AudienceProfile | None = None) -> str:
     settings = get_settings()
     if settings.llm_provider.lower() == "ollama":
-        return generate_with_ollama(question, contexts)
-    return generate_with_openai(question, contexts)
+        return generate_with_ollama(question, contexts, audience)
+    return generate_with_openai(question, contexts, audience)
