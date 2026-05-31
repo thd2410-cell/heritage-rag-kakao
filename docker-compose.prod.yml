@@ -42,5 +42,22 @@ services:
       timeout: 5s
       retries: 5
 
+  frontend:
+    image: heritage-rag-kakao-frontend:local
+    build:
+      context: ./frontend
+    container_name: heritage-rag-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_BIND_HOST:-127.0.0.1}:${FRONTEND_PORT:-3001}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:

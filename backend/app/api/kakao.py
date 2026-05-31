@@ -6,6 +6,7 @@ from app.schemas.kakao import KakaoSkillRequest
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
 from app.services.llm import generate_answer
 from app.services.retrieval import search_chunks
+from app.services.text_cleaning import remove_unwanted_cjk
 
 router = APIRouter(prefix="/api/kakao", tags=["kakao"])
 
@@ -18,10 +19,11 @@ QUICK_REPLIES = [
 
 
 def kakao_text_response(text: str) -> dict:
+    safe_text = remove_unwanted_cjk(text)
     return {
         "version": "2.0",
         "template": {
-            "outputs": [{"simpleText": {"text": text[:1000]}}],
+            "outputs": [{"simpleText": {"text": safe_text[:1000]}}],
             "quickReplies": QUICK_REPLIES,
         },
     }
@@ -59,6 +61,7 @@ def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
 
     answer = build_fast_answer(contexts)
 
+    answer = remove_unwanted_cjk(answer)
     db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=contexts))
     db.commit()
     return kakao_text_response(answer)
