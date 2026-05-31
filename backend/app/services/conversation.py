@@ -9,10 +9,10 @@ from app.services.domain import is_heritage_domain
 from app.services.personalization import AudienceProfile
 from app.services.retrieval import apply_common_aliases, search_chunks
 
-FOLLOWUP_HINTS = ["더 자세", "자세히", "심화", "이어서", "계속", "그거", "그 유산", "방금"]
+FOLLOWUP_HINTS = ["더 자세", "더자세", "자세히", "자세하게", "상세", "심화", "이어서", "계속", "그거", "그 유산", "방금"]
 TOPIC_SHIFT_HINTS = ["알려줘", "설명", "뭐야", "무엇", "어때", "추천"]
-RETURN_TOPIC_HINTS = ["아까", "이전", "전에", "방금 전"]
-ROOT_TOPIC_HINTS = ["처음", "원래", "처음에", "처음 말한"]
+RETURN_TOPIC_HINTS = ["아까", "이전", "전에", "방금 전", "방금전"]
+ROOT_TOPIC_HINTS = ["처음", "원래", "처음에", "처음 말한", "처음말한"]
 CONTEXTUAL_HINTS = [
     "건축", "구조", "형태", "공간", "역사", "시대", "의미", "특징", "가치", "인물", "왕", "누가",
     "어디", "위치", "주소", "근처", "주변", "행사", "답사", "여행", "가는", "볼만", "화재", "복원",
@@ -129,24 +129,29 @@ def search_explicit_subject(db: Session, question: str) -> dict | None:
     return None
 
 
+def contains_hint(question: str, hints: list[str]) -> bool:
+    compact_question = (question or "").replace(" ", "")
+    return any(hint in question or hint.replace(" ", "") in compact_question for hint in hints)
+
+
 def is_contextual_question(question: str) -> bool:
     return (
         is_heritage_domain(question)
-        or any(hint in question for hint in FOLLOWUP_HINTS)
-        or any(hint in question for hint in CONTEXTUAL_HINTS)
+        or contains_hint(question, FOLLOWUP_HINTS)
+        or contains_hint(question, CONTEXTUAL_HINTS)
     )
 
 
 def needs_subject_clarification(question: str) -> bool:
-    return any(hint in question for hint in REFERENCE_HINTS + CONTEXTUAL_HINTS)
+    return contains_hint(question, REFERENCE_HINTS + CONTEXTUAL_HINTS)
 
 
 def choose_subject(question: str, subjects: list[str]) -> tuple[str | None, str]:
     if not subjects:
         return None, "none"
-    if any(hint in question for hint in ROOT_TOPIC_HINTS):
+    if contains_hint(question, ROOT_TOPIC_HINTS):
         return subjects[-1], "root_topic"
-    if len(subjects) > 1 and any(hint in question for hint in RETURN_TOPIC_HINTS):
+    if len(subjects) > 1 and contains_hint(question, RETURN_TOPIC_HINTS):
         return subjects[1], "previous_topic"
     return subjects[0], "current_topic"
 
