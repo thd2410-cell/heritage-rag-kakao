@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ from app.services.retrieval import search_chunks_fast
 from app.services.text_cleaning import remove_unwanted_cjk
 
 router = APIRouter(prefix="/api/kakao", tags=["kakao"])
+logger = logging.getLogger(__name__)
 
 QUICK_REPLIES = [
     {"label": "쉽게 설명", "action": "message", "messageText": "쉽게 설명해줘"},
@@ -73,15 +76,20 @@ def build_kakao_answer(db: Session, utterance: str, user_key: str | None) -> tup
 
 
 async def send_callback_answer(callback_url: str, utterance: str, user_key: str | None) -> None:
-    with SessionLocal() as db:
-        answer, _ = build_kakao_answer(db, utterance, user_key)
-    async with httpx.AsyncClient(timeout=20) as client:
-        await client.post(callback_url, json=kakao_text_response(answer))
+    try:
+        with SessionLocal() as db:
+            answer, _ = build_kakao_answer(db, utterance, user_key)
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(callback_url, json=kakao_text_response(answer))
+            logger.info("kakao callback post status=%s body=%s", response.status_code, response.text[:300])
+    except Exception:
+        logger.exception("kakao callback post failed")
 
 
 @router.post("/skill")
 def kakao_skill(payload: KakaoSkillRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     utterance = payload.utterance.strip()
+    logger.info("kakao skill request utterance=%r user_key=%r callback=%s", utterance, payload.user_key, bool(payload.callback_url))
 
     if payload.callback_url:
         background_tasks.add_task(send_callback_answer, payload.callback_url, utterance, payload.user_key)
