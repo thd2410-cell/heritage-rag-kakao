@@ -54,33 +54,63 @@ def bullet_lines(items: list[str]) -> list[str]:
     return [f"- {item}" for item in items if item]
 
 
-def build_architecture_answer(name: str, sentences: list[str], age_group: str | None) -> list[str]:
-    details = sentences_matching(sentences, "architecture", limit=3)
+def facet_evidence(facet_json: dict | None, key: str) -> list[str]:
+    if not facet_json:
+        return []
+    facet = facet_json.get(key) or {}
+    return [compact_text(item) for item in facet.get("evidence") or [] if compact_text(item)]
+
+
+def build_architecture_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    details = facet_evidence(facet_json, "architecture_space") or sentences_matching(sentences, "architecture", limit=3)
     return [
         "형태와 구조 중심으로 정리하면:",
         *bullet_lines(rewrite_for_age(item, age_group) for item in details),
     ]
 
 
-def build_people_answer(name: str, sentences: list[str], age_group: str | None) -> list[str]:
-    details = sentences_matching(sentences, "people", limit=3)
+def build_people_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    details = facet_evidence(facet_json, "people") or sentences_matching(sentences, "people", limit=3)
     return [
         "관련 인물 중심으로 정리하면:",
         *bullet_lines(rewrite_for_age(item, age_group) for item in details),
     ]
 
 
-def build_travel_answer(name: str, address: str | None, sentences: list[str], age_group: str | None) -> list[str]:
-    details = sentences_matching(sentences, "travel", limit=3)
+def build_travel_answer(name: str, address: str | None, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    travel = (facet_json or {}).get("travel_visit") or {}
+    details = travel.get("evidence") or sentences_matching(sentences, "travel", limit=3)
     lines = ["답사/방문 정보 중심으로 정리하면:"]
+    address = travel.get("address") or address
+    latitude = travel.get("latitude")
+    longitude = travel.get("longitude")
     if address:
-        lines.append(f"- 현재 확인되는 위치: {address}")
+        lines.append(f"- 위치: {address}")
+    if latitude is not None and longitude is not None:
+        lines.append(f"- 좌표: {latitude}, {longitude}")
     lines.extend(bullet_lines(rewrite_for_age(item, age_group) for item in details))
+    nearby = travel.get("nearby_heritages") or []
+    if nearby:
+        lines.extend(["", "근처 국가유산 후보:"])
+        for item in nearby[:5]:
+            distance = item.get("distance_km")
+            distance_text = f" · 약 {distance}km" if distance is not None else ""
+            category = f" · {item.get('category')}" if item.get("category") else ""
+            lines.append(f"- {item.get('name')}{distance_text}{category}")
+    events = travel.get("related_events") or travel.get("events") or []
+    if events:
+        lines.extend(["", "관련 행사:"])
+        for event in events[:3]:
+            place = f" · {event.get('place') or event.get('venue')}" if event.get("place") or event.get("venue") else ""
+            date = f" · {event.get('date') or event.get('date_text')}" if event.get("date") or event.get("date_text") else ""
+            lines.append(f"- {event.get('title')}{place}{date}")
+            if event.get("url"):
+                lines.append(f"  {event.get('url')}")
     return lines
 
 
-def build_story_answer(name: str, sentences: list[str], age_group: str | None) -> list[str]:
-    details = sentences_matching(sentences, "story", limit=4)
+def build_story_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    details = facet_evidence(facet_json, "story_legend") or sentences_matching(sentences, "story", limit=4)
     return [
         "이야기 흐름으로 정리하면:",
         *[f"{idx}. {rewrite_for_age(item, age_group)}" for idx, item in enumerate(details, start=1)],
@@ -104,6 +134,26 @@ def build_default_answer(sentences: list[str], age_group: str | None) -> list[st
     return [rewrite_for_age(summary, age_group)]
 
 
+def wants_more_detail(question: str) -> bool:
+    return any(word in question for word in ["더 자세", "자세히", "심화", "깊게", "구체적"])
+
+
+def build_deep_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    architecture = facet_evidence(facet_json, "architecture_space")[:3]
+    story = facet_evidence(facet_json, "story_legend")[:3]
+    people = facet_evidence(facet_json, "people")[:3]
+    lines = ["조금 더 자세히 나누어 보면:"]
+    if story:
+        lines.extend(["", "이야기/역사 흐름:", *bullet_lines(rewrite_for_age(item, age_group) for item in story)])
+    if architecture:
+        lines.extend(["", "건축/형태 포인트:", *bullet_lines(rewrite_for_age(item, age_group) for item in architecture)])
+    if people:
+        lines.extend(["", "관련 인물/시대:", *bullet_lines(rewrite_for_age(item, age_group) for item in people)])
+    if len(lines) == 1:
+        lines.extend(bullet_lines(rewrite_for_age(item, age_group) for item in sentences[:7]))
+    return lines
+
+
 def choose_primary_interest(interests: set[str]) -> str | None:
     for interest in ["architecture", "people", "travel", "quiz", "story"]:
         if interest in interests:
@@ -124,6 +174,7 @@ def build_personalized_answer(question: str, contexts: list[dict], audience: Aud
     meta = " · ".join(x for x in [context.get("category"), context.get("region"), context.get("era")] if x)
     address = context.get("address")
     source_url = context.get("source_url")
+    facet_json = context.get("facet_json") or {}
     sentences = split_sentences(context.get("chunk_text") or "")
 
     lines = [f"지금 확인된 자료는 ‘{name}’입니다."]
@@ -131,16 +182,18 @@ def build_personalized_answer(question: str, contexts: list[dict], audience: Aud
         lines.append(meta)
     lines.append("")
 
-    if primary_interest == "architecture":
-        lines.extend(build_architecture_answer(name, sentences, age_group))
+    if wants_more_detail(question):
+        lines.extend(build_deep_answer(name, sentences, age_group, facet_json))
+    elif primary_interest == "architecture":
+        lines.extend(build_architecture_answer(name, sentences, age_group, facet_json))
     elif primary_interest == "people":
-        lines.extend(build_people_answer(name, sentences, age_group))
+        lines.extend(build_people_answer(name, sentences, age_group, facet_json))
     elif primary_interest == "travel":
-        lines.extend(build_travel_answer(name, address, sentences, age_group))
+        lines.extend(build_travel_answer(name, address, sentences, age_group, facet_json))
     elif primary_interest == "quiz":
         lines.extend(build_quiz_answer(name, sentences, age_group))
     elif primary_interest == "story":
-        lines.extend(build_story_answer(name, sentences, age_group))
+        lines.extend(build_story_answer(name, sentences, age_group, facet_json))
     else:
         lines.extend(build_default_answer(sentences, age_group))
 

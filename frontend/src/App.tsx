@@ -62,6 +62,15 @@ function App() {
     setInterests((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
   }
 
+  function getSessionId(): string {
+    const key = 'heritage-chat-session-id'
+    const existing = window.localStorage.getItem(key)
+    if (existing) return existing
+    const created = `web-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    window.localStorage.setItem(key, created)
+    return created
+  }
+
   function buildAudience(): AudienceProfile {
     return {
       age_group: ageGroup,
@@ -81,7 +90,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/rag/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed, audience: buildAudience() }),
+        body: JSON.stringify({ question: trimmed, audience: buildAudience(), session_id: getSessionId() }),
       })
 
       if (!response.ok) {

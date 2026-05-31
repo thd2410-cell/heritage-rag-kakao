@@ -1,4 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
 CREATE TABLE IF NOT EXISTS heritages (
     id BIGSERIAL PRIMARY KEY,
@@ -15,6 +17,7 @@ CREATE TABLE IF NOT EXISTS heritages (
     image_url TEXT,
     content TEXT,
     source_url TEXT,
+    facet_json JSONB,
     raw_json JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (ccba_kdcd, ccba_asno, ccba_ctcd)

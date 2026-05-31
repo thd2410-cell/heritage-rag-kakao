@@ -17,12 +17,14 @@ import httpx
 from sqlalchemy.dialects.postgresql import insert
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
 sys.path.append(str(ROOT / "backend"))
 
 from app.db.session import SessionLocal  # noqa: E402
 from app.models.heritage import DocumentChunk, Heritage  # noqa: E402
 from app.services.chunking import chunk_text  # noqa: E402
 from app.services.embedding import embed_text  # noqa: E402
+from scripts.build_heritage_json_v1 import build_facets, fetch_events, match_events  # noqa: E402
 
 LIST_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiList.do"
 DETAIL_URL = "https://www.khs.go.kr/cha/SearchKindOpenapiDt.do"
@@ -116,12 +118,36 @@ def fetch_detail(client: httpx.Client, item: dict[str, Any]) -> dict[str, Any]:
     return items[0] if items else {}
 
 
-def normalize(item: dict[str, Any], detail: dict[str, Any]) -> dict[str, Any]:
+def normalize(item: dict[str, Any], detail: dict[str, Any], events: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     ccba_kdcd = str(first(item.get("ccbaKdcd"), detail.get("ccbaKdcd")))
     ccba_asno = str(first(item.get("ccbaAsno"), detail.get("ccbaAsno")))
     ccba_ctcd = str(first(item.get("ccbaCtcd"), detail.get("ccbaCtcd")))
     content = clean_html(first(detail.get("content"), detail.get("ccceName"), detail.get("ccbaContent")))
     source_url = f"{DETAIL_URL}?ccbaKdcd={ccba_kdcd}&ccbaAsno={ccba_asno}&ccbaCtcd={ccba_ctcd}"
+    address = first(detail.get("ccbaLcad"), item.get("ccbaLcad"))
+    latitude = float(first(detail.get("latitude"), item.get("latitude"))) if first(detail.get("latitude"), item.get("latitude")) else None
+    longitude = float(first(detail.get("longitude"), item.get("longitude"))) if first(detail.get("longitude"), item.get("longitude")) else None
+    facets = build_facets(content or "", address, latitude, longitude)
+    matched_events = match_events(
+        {
+            "names": {"ko": first(detail.get("ccbaMnm1"), item.get("ccbaMnm1"), item.get("ccbaMnm2"), "이름 미상")},
+            "location": {"region": first(detail.get("ccbaCtcdNm"), item.get("ccbaCtcdNm"), REGIONS.get(ccba_ctcd)), "district": detail.get("ccsiName")},
+        },
+        events or [],
+    )
+    facets["travel_visit"]["related_events"] = [
+        {
+            "title": event.get("title"),
+            "place": event.get("venue"),
+            "date": event.get("date_text"),
+            "url": event.get("url"),
+            "region": event.get("region"),
+            "district": event.get("district"),
+        }
+        for event in matched_events
+    ]
+    facets["travel_visit"].pop("events", None)
+
     return {
         "ccba_kdcd": ccba_kdcd,
         "ccba_asno": ccba_asno,
@@ -130,12 +156,13 @@ def normalize(item: dict[str, Any], detail: dict[str, Any]) -> dict[str, Any]:
         "category": first(detail.get("ccmaName"), item.get("ccmaName"), CATEGORIES.get(ccba_kdcd)),
         "region": first(detail.get("ccbaCtcdNm"), item.get("ccbaCtcdNm"), REGIONS.get(ccba_ctcd)),
         "era": first(detail.get("ccceName"), detail.get("ccbaAge")),
-        "address": first(detail.get("ccbaLcad"), item.get("ccbaLcad")),
-        "latitude": float(detail["latitude"]) if detail.get("latitude") else None,
-        "longitude": float(detail["longitude"]) if detail.get("longitude") else None,
+        "address": address,
+        "latitude": latitude,
+        "longitude": longitude,
         "image_url": first(detail.get("imageUrl"), detail.get("ccimDesc")),
         "content": content,
         "source_url": source_url,
+        "facet_json": facets,
         "raw_json": {"list": item, "detail": detail},
     }
 
@@ -156,18 +183,28 @@ def main() -> None:
     parser.add_argument("--no-embed", action="store_true", help="Store heritages only; skip chunk embedding")
     parser.add_argument("--all", action="store_true", help="Collect all listed heritages across all categories/regions")
     parser.add_argument("--page-unit", type=int, default=1000, help="List API page size when using --all")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip detail fetch when a heritage already exists")
     args = parser.parse_args()
 
     collected = 0
     with httpx.Client(headers={"User-Agent": "heritage-rag-kakao-mk0"}, follow_redirects=True) as client, SessionLocal() as db:
+        events = fetch_events(500)
         if args.all:
             for item in iter_list(client, page_unit=args.page_unit):
                 if args.limit and collected >= args.limit:
                     db.commit()
                     print(f"collected={collected}")
                     return
+                if args.skip_existing:
+                    exists = db.query(Heritage.id).filter(
+                        Heritage.ccba_kdcd == str(item.get("ccbaKdcd") or ""),
+                        Heritage.ccba_asno == str(item.get("ccbaAsno") or ""),
+                        Heritage.ccba_ctcd == str(item.get("ccbaCtcd") or ""),
+                    ).first()
+                    if exists:
+                        continue
                 detail = fetch_detail(client, item)
-                row = normalize(item, detail)
+                row = normalize(item, detail, events)
                 heritage_id = upsert_heritage(db, row)
                 db.query(DocumentChunk).filter(DocumentChunk.heritage_id == heritage_id).delete()
                 for idx, chunk in enumerate(chunk_text(row.get("content") or row["name"])):
@@ -194,7 +231,7 @@ def main() -> None:
                         print(f"collected={collected}")
                         return
                     detail = fetch_detail(client, item)
-                    row = normalize(item, detail)
+                    row = normalize(item, detail, events)
                     heritage_id = upsert_heritage(db, row)
                     db.query(DocumentChunk).filter(DocumentChunk.heritage_id == heritage_id).delete()
                     for idx, chunk in enumerate(chunk_text(row.get("content") or row["name"])):

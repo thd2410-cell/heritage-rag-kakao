@@ -23,6 +23,7 @@ class Heritage(Base):
     image_url: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(Text)
+    facet_json: Mapped[dict | None] = mapped_column(JSONB)
     raw_json: Mapped[dict | None] = mapped_column(JSONB)
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

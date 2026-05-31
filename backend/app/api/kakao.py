@@ -4,6 +4,7 @@ from app.db.session import get_db
 from app.models.heritage import ChatLog
 from app.schemas.kakao import KakaoSkillRequest
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
+from app.services.guardrails import check_guardrail
 from app.services.llm import generate_answer
 from app.services.retrieval import search_chunks
 from app.services.text_cleaning import remove_unwanted_cjk
@@ -52,6 +53,11 @@ def build_fast_answer(contexts: list[dict]) -> str:
 @router.post("/skill")
 def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
     utterance = payload.utterance.strip()
+    blocked = check_guardrail(utterance)
+    if blocked:
+        db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=blocked, sources=[]))
+        db.commit()
+        return kakao_text_response(blocked)
     contexts = search_chunks(db, utterance, limit=3)
     if not is_heritage_domain(utterance) and not contexts:
         answer = OUT_OF_DOMAIN_MESSAGE
