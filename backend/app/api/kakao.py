@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.heritage import ChatLog
 from app.schemas.kakao import KakaoSkillRequest
+from app.services.conversation import resolve_contextual_question
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
 from app.services.guardrails import check_guardrail
-from app.services.llm import generate_answer
 from app.services.retrieval import search_chunks
 from app.services.text_cleaning import remove_unwanted_cjk
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/kakao", tags=["kakao"])
 QUICK_REPLIES = [
     {"label": "쉽게 설명", "action": "message", "messageText": "쉽게 설명해줘"},
     {"label": "심화 설명", "action": "message", "messageText": "심화 설명해줘"},
-    {"label": "퀴즈", "action": "message", "messageText": "퀴즈 내줘"},
+    {"label": "위치/근처", "action": "message", "messageText": "근처에 뭐 있어?"},
     {"label": "관련 유산", "action": "message", "messageText": "관련 유산 추천해줘"},
 ]
 
@@ -37,7 +37,7 @@ def build_fast_answer(contexts: list[dict]) -> str:
     text = (c.get("chunk_text") or "").strip().replace("\n", " ")
     if len(text) > 520:
         text = text[:520].rstrip() + "..."
-    lines = [f"{c.get('name')}" ]
+    lines = [f"{c.get('name')}"]
     meta = " · ".join(x for x in [c.get("category"), c.get("region"), c.get("era")] if x)
     if meta:
         lines.append(meta)
@@ -58,16 +58,19 @@ def kakao_skill(payload: KakaoSkillRequest, db: Session = Depends(get_db)):
         db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=blocked, sources=[]))
         db.commit()
         return kakao_text_response(blocked)
-    contexts = search_chunks(db, utterance, limit=3)
-    if not is_heritage_domain(utterance) and not contexts:
+
+    resolution = resolve_contextual_question(db, utterance, payload.user_key)
+    if resolution.needs_clarification:
+        return kakao_text_response(resolution.clarification or "어떤 국가유산에 대한 질문인지 알려주세요.")
+
+    contexts = search_chunks(db, resolution.question, limit=3)
+    if not is_heritage_domain(resolution.question) and not contexts:
         answer = OUT_OF_DOMAIN_MESSAGE
         db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=[]))
         db.commit()
         return kakao_text_response(answer)
 
-    answer = build_fast_answer(contexts)
-
-    answer = remove_unwanted_cjk(answer)
+    answer = remove_unwanted_cjk(build_fast_answer(contexts))
     db.add(ChatLog(user_key=payload.user_key, utterance=utterance, answer=answer, sources=contexts))
     db.commit()
     return kakao_text_response(answer)
