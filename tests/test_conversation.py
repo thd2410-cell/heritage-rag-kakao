@@ -1,6 +1,7 @@
 import unittest
 
-from app.services.conversation import choose_subject, needs_subject_clarification
+from app.services.answer_builder import wants_more_detail
+from app.services.conversation import choose_subject, is_contextual_question, needs_subject_clarification
 
 
 class ConversationTests(unittest.TestCase):
@@ -21,6 +22,32 @@ class ConversationTests(unittest.TestCase):
 
     def test_contextual_question_without_subject_needs_clarification(self):
         self.assertTrue(needs_subject_clarification("근처에 뭐 있어?"))
+
+    def test_compact_detail_followups_are_contextual(self):
+        examples = [
+            "더자세하게 알려줘",
+            "상세히 알려줘",
+            "좀 더 풀어서 설명해줘",
+            "길게 설명해줘",
+            "구체적인 예시도 알려줘",
+            "왜 중요한데?",
+            "의미가 뭐야?",
+        ]
+        for example in examples:
+            with self.subTest(example=example):
+                self.assertTrue(is_contextual_question(example))
+
+    def test_detail_answer_variants_trigger_deep_answer(self):
+        examples = [
+            "더자세하게 알려줘",
+            "상세히 알려줘",
+            "좀 더 풀어서 설명해줘",
+            "길게 설명해줘",
+            "구체적인 예시도 알려줘",
+        ]
+        for example in examples:
+            with self.subTest(example=example):
+                self.assertTrue(wants_more_detail(example))
 
 
 if __name__ == "__main__":

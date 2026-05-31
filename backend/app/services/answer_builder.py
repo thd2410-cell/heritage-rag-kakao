@@ -136,7 +136,10 @@ def build_default_answer(sentences: list[str], age_group: str | None) -> list[st
 
 def wants_more_detail(question: str) -> bool:
     compact_question = (question or "").replace(" ", "")
-    detail_hints = ["더 자세", "더자세", "자세히", "자세하게", "상세", "심화", "깊게", "구체적"]
+    detail_hints = [
+        "더 자세", "더자세", "자세히", "자세하게", "상세", "상세히", "상세하게", "심화",
+        "깊게", "구체", "풀어서", "더 풀", "더풀", "길게", "더 길", "더길", "예시", "예를",
+    ]
     return any(hint in question or hint.replace(" ", "") in compact_question for hint in detail_hints)
 
 
