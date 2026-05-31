@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.answer_builder import wants_more_detail
+from app.services.answer_builder import wants_easy_explanation, wants_importance, wants_more_detail
 from app.services.conversation import choose_subject, is_contextual_question, needs_subject_clarification
 
 
@@ -48,6 +48,16 @@ class ConversationTests(unittest.TestCase):
         for example in examples:
             with self.subTest(example=example):
                 self.assertTrue(wants_more_detail(example))
+
+    def test_importance_variants_trigger_importance_answer(self):
+        for example in ["왜 중요한데?", "의미가 뭐야?", "뭐가 특별해?"]:
+            with self.subTest(example=example):
+                self.assertTrue(wants_importance(example))
+
+    def test_easy_variants_trigger_easy_answer(self):
+        for example in ["쉽게 다시 설명해줘", "초등학생도 이해하게 설명해줘", "쉬운 말로 풀어서 말해줘"]:
+            with self.subTest(example=example):
+                self.assertTrue(wants_easy_explanation(example))
 
 
 if __name__ == "__main__":

@@ -143,6 +143,18 @@ def wants_more_detail(question: str) -> bool:
     return any(hint in question or hint.replace(" ", "") in compact_question for hint in detail_hints)
 
 
+def wants_importance(question: str) -> bool:
+    compact_question = (question or "").replace(" ", "")
+    hints = ["왜 중요", "왜중요", "중요한", "의미", "가치", "왜 유명", "왜유명", "뭐가 특별", "뭐가특별"]
+    return any(hint in question or hint.replace(" ", "") in compact_question for hint in hints)
+
+
+def wants_easy_explanation(question: str) -> bool:
+    compact_question = (question or "").replace(" ", "")
+    hints = ["쉽게", "쉬운", "초등", "어린", "다시 설명", "다시설명", "풀어서", "이해하기"]
+    return any(hint in question or hint.replace(" ", "") in compact_question for hint in hints)
+
+
 def build_deep_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
     architecture = facet_evidence(facet_json, "architecture_space")[:3]
     story = facet_evidence(facet_json, "story_legend")[:3]
@@ -157,6 +169,39 @@ def build_deep_answer(name: str, sentences: list[str], age_group: str | None, fa
     if len(lines) == 1:
         lines.extend(bullet_lines(rewrite_for_age(item, age_group) for item in sentences[:7]))
     return lines
+
+
+def build_importance_answer(name: str, sentences: list[str], age_group: str | None, facet_json: dict | None = None) -> list[str]:
+    story = facet_evidence(facet_json, "story_legend")[:2]
+    architecture = facet_evidence(facet_json, "architecture_space")[:2]
+    people = facet_evidence(facet_json, "people")[:2]
+    evidence = story + architecture + people
+    if not evidence:
+        evidence = sentences[:5]
+    lines = ["왜 중요하게 보는지 정리하면:"]
+    if evidence:
+        lines.extend(bullet_lines(rewrite_for_age(item, age_group) for item in evidence[:5]))
+    lines.append("")
+    lines.append(
+        f"정리하면, ‘{name}’은 단순히 오래된 물건이나 장소라기보다 "
+        "그 시대의 생활 방식, 기술, 사건, 기억을 지금까지 이어 보여주는 자료라서 중요합니다."
+    )
+    return lines
+
+
+def build_easy_answer(name: str, sentences: list[str], facet_json: dict | None = None) -> list[str]:
+    story = facet_evidence(facet_json, "story_legend")[:1]
+    architecture = facet_evidence(facet_json, "architecture_space")[:1]
+    details = story + architecture
+    if not details:
+        details = sentences[:3]
+    simple_details = [rewrite_for_age(item, "elementary") for item in details]
+    return [
+        "쉽게 말하면:",
+        f"- ‘{name}’은 옛사람들이 남긴 중요한 흔적이에요.",
+        *bullet_lines(simple_details[:3]),
+        f"- 그래서 ‘{name}’을 보면 그 시대 사람들이 무엇을 중요하게 생각했는지 알 수 있어요.",
+    ]
 
 
 def choose_primary_interest(interests: set[str]) -> str | None:
@@ -187,7 +232,11 @@ def build_personalized_answer(question: str, contexts: list[dict], audience: Aud
         lines.append(meta)
     lines.append("")
 
-    if wants_more_detail(question):
+    if wants_easy_explanation(question):
+        lines.extend(build_easy_answer(name, sentences, facet_json))
+    elif wants_importance(question):
+        lines.extend(build_importance_answer(name, sentences, age_group, facet_json))
+    elif wants_more_detail(question):
         lines.extend(build_deep_answer(name, sentences, age_group, facet_json))
     elif primary_interest == "architecture":
         lines.extend(build_architecture_answer(name, sentences, age_group, facet_json))
