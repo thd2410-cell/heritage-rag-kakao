@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services.domain import OUT_OF_DOMAIN_MESSAGE, is_heritage_domain
-from app.services.llm import generate_answer
+from app.services.answer_builder import build_personalized_answer
 from app.services.personalization import AudienceProfile
 from app.services.retrieval import search_chunks
 
@@ -22,4 +22,4 @@ def ask(payload: AskRequest, db: Session = Depends(get_db)):
         return {"answer": OUT_OF_DOMAIN_MESSAGE, "sources": []}
     if not contexts:
         return {"answer": "현재 확보된 국가유산 데이터에서는 확인하기 어렵습니다.", "sources": []}
-    return {"answer": generate_answer(payload.question, contexts, payload.audience), "sources": contexts}
+    return {"answer": build_personalized_answer(payload.question, contexts, payload.audience), "sources": contexts}
