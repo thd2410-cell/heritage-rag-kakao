@@ -131,7 +131,9 @@ def parse_detail_to_heritage(detail_root, kdcd, asno, ctcd):
     category = clean_text(item.findtext("ccmaName") or "")
     location = clean_text(item.findtext("ccbaLcad") or "")
 
-    if not name or len(description) < 50:
+    # 이름 없으면 메타데이터도 못 만듦 → 그것만 제외.
+    # 50자 미만 필터는 indexer.py로 이동 (수집=raw 보존, 인덱싱 시 제외 — 정제 결정 ⑥)
+    if not name:
         return None
 
     region = location.split()[0] if location else ""

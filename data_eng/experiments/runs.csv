@@ -11,3 +11,6 @@ Exp-100d,2026-05-31 14:26,v1,KoSimCSE-roberta,gpt-4o-mini,0.0,400,50,3,heritages
 Exp-102,2026-05-31 14:30,v1,KoSimCSE-roberta,gpt-4o-mini,0.0,400,50,5,heritages-v3-627items,0.706,0.699,0.706,0.657,0.65,0.382,0.316,,1.0,0.925,2.13,4.0,171,,Top-K 5 비교
 Exp-103,2026-05-31 14:35,v2,KoSimCSE-roberta,gpt-4o-mini,0.0,400,50,3,heritages-v3-627items,0.508,0.463,0.463,0.456,0.456,0.355,0.309,,1.0,0.925,1.41,2.81,108,,프롬프트 v2 환각 강화
 Exp-104,2026-05-31 14:42,v1,KoSimCSE-roberta,gpt-4o-mini,0.0,400,50,3,heritages-v3-627items,0.648,0.659,0.684,0.642,0.635,0.355,0.309,,1.0,0.925,1.97,3.54,168,,"Metadata Filter 룰베이스 (k=3, v1)"
+Exp-bgem3-100,2026-05-31,—,BAAI/bge-m3,—,,800,0,5,heritages-bgem3-5743-content,,,,,,0.461,0.379,,,,,,,,"도커프리 vector-only; R@5 0.50; single52.2/compare63.6/filter36.0; bestcos med0.584; 옛KoSimCSE35.5"
+Exp-bgem3-101,2026-05-31,—,BAAI/bge-m3,—,,800,0,5,heritages-bgem3-5743-nameContent,,,,,,0.566,0.497,,,,,,,,"name+content; R@5 0.632; single56.5/compare63.6/filter64.0; filter+28%p vs100; name임베딩 채택"
+Exp-bgem3-102,2026-05-31,—,BAAI/bge-m3,—,,800,0,5,heritages-bgem3-5743-nameContent-hybrid,,,,,,0.566,0.541,,,,,,,,"+hybrid(name어휘매칭); R@3 무변동 vs101; single56.5(0)/compare59.1(-4.5)/filter68.0(+4); naive한계(exact-first없음)"

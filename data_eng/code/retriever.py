@@ -25,10 +25,11 @@ class KoSimCSEEmbeddings(Embeddings):
         self.model = SentenceTransformer("BM-K/KoSimCSE-roberta")
 
     def embed_documents(self, texts):
-        return self.model.encode(texts).tolist()
+        # normalize_embeddings: indexer.py와 반드시 동일해야 함 ([발견 003])
+        return self.model.encode(texts, normalize_embeddings=True).tolist()
 
     def embed_query(self, text):
-        return self.model.encode([text])[0].tolist()
+        return self.model.encode([text], normalize_embeddings=True)[0].tolist()
 
 
 # ─────────────────────────────────────────────────────────
@@ -144,10 +145,11 @@ INTENT_PROMPTS = {
 
 
 # Stage 9: 모르는 유산 처리 — similarity 임계값
-# ChromaDB는 L2 distance 기반 (낮을수록 가까움). KoSimCSE 768차원은 분산 큼.
-# 실험으로 적정값 찾아야 함 (Exp-310, 311, 312 참고).
-# 초기 관대값: 2.0 (거의 차단 안 함, BK 첫 실험용)
-NO_ANSWER_THRESHOLD = 999.0  # 임시 비활성화. distance 측정 후 적정값으로 조정
+# [발견 003] 수정 후: indexer가 normalize + cosine 컬렉션(hnsw:space=cosine).
+#   → distance 범위 0~2 (0=동일, 1=직교, 2=반대). 기존 L2 100~170에서 바뀜.
+# 튜닝 절차: 재인덱싱 → RAG_DEBUG=1로 best_score 분포 측정 → 0.4~0.6 사이 적정값 (Exp-310/311/312).
+# ⚠️ 재인덱싱 전에는 999 유지 (옛 L2 DB에 cosine 값 넣으면 전부 차단됨).
+NO_ANSWER_THRESHOLD = 999.0  # 재인덱싱+측정 후 0.4~0.6으로 활성화 예정
 
 # 디버그: 환경변수 RAG_DEBUG=1 이면 distance 출력
 import os

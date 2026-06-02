@@ -14,3 +14,7 @@ agent_working.md
 
 # 실험 인덱스 (재생성 가능, 용량 큼)
 data_eng/**/chroma_db/
+
+# 임베딩 캐시 (재생성 가능, 용량 큼) + 임시 덤프
+*.npz
+data_eng/experiments/_questions_dump.txt

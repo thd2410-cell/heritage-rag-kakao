@@ -55,10 +55,40 @@
 
 → 정제 방식이 본선 발표 수치에 직접 영향.
 
+## 박스 02.5 — 라벨링 / facet enrichment (서버 협의 2026-05-31)
+
+> 정제(있는 필드 다듬기) **다음**, 인덱싱 **전**의 데이터 준비 단계. 정제와 이웃이라 박스 02에 포함.
+> 정제 ≠ 라벨링: 정제는 "한 번 하면 끝", 라벨은 "파생이라 언제든 재생성".
+
+**서버가 정한 구조**: `heritages` 테이블에 기본정보 + **`facet_json`** 저장.
+- facet_json = 유산마다 **관심사별 evidence 문장을 미리 계산**해 저장.
+  - `architecture_space` / `story_legend` / `people` / `travel_visit`
+  - 각 facet에 `evidence: [관련 문장들]`
+- query-time엔 사용자 선택 관심사의 facet evidence를 **골라쓰기만** → 빠름·결정적·per-query LLM 비용 0.
+- answer_builder 하드코딩 키워드의 진화형 (offline 미리 추출 → 저장).
+
+**분담**: 서버 = 스키마 + 질의 로직 / **BK = facet_json 생성(LLM enrichment)**.
+
+**🔑 evidence 추출은 LLM 배치로** (BK 도메인):
+- 유산 content → LLM "이 facet들에 해당하는 문장 골라줘" → facet_json. 15K 1회 배치(gemini 무료/gpt-4o-mini).
+- ⚠️ 키워드로 뽑으면 과적합(answer_builder 전철) → **LLM 필수.**
+
+**단계적 도입**:
+```
+1단계: 텍스트 facet (architecture/story/people)  ← content만, LLM. 좌표 불필요. 지금 가능
+2단계: travel_visit                             ← 좌표(위치API)+거리계산(nearby)+행사API(events). 나중
+```
+
+**갭/의존성**:
+- travel_visit의 nearby = **좌표(lat/long) 필요** → BK 현재 데이터에 없음(fetcher 미수집) → 위치 API(gis-heritage) 수집 추가.
+- related_events = 행사 API 수집 추가 (data_sources.md에 있음).
+- facet_json 컬럼 = init.sql 변경 = **서버 소유**(이미 설계함).
+
 ## 미해결
 
 - 한자 별도 필드(`name_hanja`) → 팀 PostgreSQL 스키마에 컬럼 추가 필요? 박스 05에서 합의
 - 메타 표준화 매핑 사전 누가 만들지 (BK 직접 vs LLM 추출 — 발견 005)
+- facet evidence LLM 추출 프롬프트 설계 (1단계 착수 시)
 
 ## 참고
 - 정제 협의 문서 (BK 결정 문서로 톤 전환 필요): [../data_schema.md](../data_schema.md)

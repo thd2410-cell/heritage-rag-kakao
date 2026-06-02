@@ -25,14 +25,16 @@ class KoSimCSEEmbeddings(Embeddings):
 
     def embed_documents(self, texts):
         # 진행률 표시 + 배치 크기 (CPU 적정)
+        # normalize_embeddings: 단위벡터화 → L2 거리가 cosine과 일치 ([발견 003])
         return self.model.encode(
             texts,
             show_progress_bar=True,
             batch_size=64,
+            normalize_embeddings=True,
         ).tolist()
 
     def embed_query(self, text):
-        return self.model.encode([text])[0].tolist()
+        return self.model.encode([text], normalize_embeddings=True)[0].tolist()
 
 
 def main():
@@ -51,7 +53,13 @@ def main():
     #    LLM이 답할 때 활용할 수 있는 정보를 한 문서에 다 모음
     # ─────────────────────────────────────────────────────
     documents = []
+    skipped = 0
     for h in heritages:
+        # 정제 결정 ⑥: description 50자 미만은 벡터 인덱스 제외 (json엔 메타로 남아있음)
+        # 임계값 50은 수집 완료 후 분포 보고 조정 가능 (이 한 줄만 바꾸면 됨)
+        if len(h.get("description", "")) < 50:
+            skipped += 1
+            continue
         # 새 스키마: parent_name, category 추가, location은 옛 데이터에만 있음
         parent_line = f"소속: {h['parent_name']}\n" if h.get("parent_name") else ""
         category_line = f"분류: {h['category']}\n" if h.get("category") else ""
@@ -91,6 +99,7 @@ def main():
         separators=["\n\n", "\n", ".", " "],
     )
     chunks = splitter.split_documents(documents)
+    print(f"인덱싱 대상 {len(documents)}개 / 50자 미만 제외 {skipped}개 (json엔 보존)")
     print(f"chunk {len(chunks)}개 생성됨")
 
     # ─────────────────────────────────────────────────────
@@ -103,6 +112,8 @@ def main():
         embedding=KoSimCSEEmbeddings(),
         persist_directory=persist_dir,
         collection_name="heritages",
+        # 거리함수 L2(기본) → cosine. KoSimCSE는 cosine 학습 모델 ([발견 003])
+        collection_metadata={"hnsw:space": "cosine"},
     )
 
     print(f"ChromaDB 저장 완료! → {persist_dir}")
